@@ -63,13 +63,15 @@ class GraphRNN:
                 # Flip a coin given sigmoid probability
                 x_el = torch.bernoulli(out_el).item()
                 edges[n,e] = x_el
-                x_el = torch.tensor([x_el], dtype=torch.float32).reshape(1, -1)
+                x_el = torch.tensor(
+                    [x_el], dtype=torch.float32
+                ).unsqueeze(dim=0)
             
             # Input to next cell of graph-level RNN is the hidden 
             # state of the last edge-level RNN cell
             x_gl = hn_el
 
-            # Check for EOS (isolated node)
+            # Check for EOS (isolated node, no edges)
             if sum(edges[n,:]) == 0:
                 break
         
