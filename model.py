@@ -2,6 +2,12 @@ import torch
 import numpy as np
 
 class GraphRNN:
+    ''' 
+    GraphRNN model: A hierarchical RNN, where the first (i.e., the graph-level) 
+    RNN generates the nodes and maintains the state of the graph, while the second 
+    (i.e., the edge-level) RNN generates the edges of a given node. 
+    Implementation following details from https://arxiv.org/pdf/1802.08773 .
+    '''
     def __init__(self, device, input_size=16, max_nodes=10):
 
         self.MAX_NODES = max_nodes
@@ -42,7 +48,6 @@ class GraphRNN:
             torch.nn.Sigmoid(),
         )
     
-
     def forward(self):
         edges = np.empty((self.MAX_NODES, self.MAX_NODES))
 
@@ -56,7 +61,7 @@ class GraphRNN:
 
             # Edge-level RNN
             for e in range(n):
-                out_el, hn_el = self.edge_level_rnn(x_el, hn_el)
+                out_el, hn_el = self.edge_level_rnn(x_el, hn_el) # TODO: Should we use GL output instead of GL hidden state to initialise EL (20:53)?
                 out_el = self.edge_mlp(out_el)
                 print(out_el.shape)
 
