@@ -110,7 +110,7 @@ def graph_to_S_pi(graph, pi):
                 adjacency_vector[node_index[neighbor]] = 1
         S_pi.append(adjacency_vector)
 
-    return S_pi
+    return S_pi 
 
 def prepare_dataset(type="community"):
     """
