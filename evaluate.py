@@ -1,5 +1,44 @@
 """Evaluate performance of the graph generation model through visualization and metrics."""
 
+"""
++-----------------------------------------------+------------------------------------------------------------------+-------------------------------------------------+
+| Function Name                                 | Description                                                      | Functions Used & Packages                       |
++-----------------------------------------------+------------------------------------------------------------------+-------------------------------------------------+
+| generated_graph_to_networkx                   | Converts a generated graph to a NetworkX object                 | np.array (numpy), nx.from_numpy_array (networkx) |
+| draw_generated_graph                          | Draws a generated graph and saves it as an image                 | generated_graph_to_networkx (local), plt.figure (matplotlib), nx.spring_layout (networkx), nx.draw (networkx), plt.savefig (matplotlib) |
+| compare_graphs_mmd                            | Computes Maximum Mean Discrepancy (MMD) score between two graphs | nx.to_numpy_array (networkx), mmd_func (external) |
+| _diff_func                                    | Computes the absolute difference of a graph metric               | graph_metric_fn (external)                      |
+| compare_graphs_avg_degree                     | Computes the difference in average degree                        | _diff_func (local), graph_metrics.average_degree (external) |
+| compare_graphs_avg_clustering_coeff           | Computes the difference in average clustering coefficient        | nx.clustering (networkx), np.mean (numpy)       |
+| compare_graphs_avg_orbit_stats                | Computes the difference in average orbit statistics              | get_orbit_stats (local), np.mean (numpy)        |
+| compare_graphs_avg_degree_centrality          | Computes the difference in average degree centrality             | _diff_func (local), graph_metrics.average_degree_centrality (external) |
+| compare_graphs_avg_betweenness_centrality     | Computes the difference in average betweenness centrality        | _diff_func (local), graph_metrics.average_betweenness_centrality (external) |
+| compare_graphs_avg_closeness_centrality       | Computes the difference in average closeness centrality          | _diff_func (local), graph_metrics.average_closeness_centrality (external) |
+| compare_graphs_avg_eigenvector_centrality     | Computes the difference in average eigenvector centrality        | _diff_func (local), graph_metrics.average_eigenvector_centrality (external) |
+| compare_graphs_transitivity                   | Computes the difference in transitivity (triadic closure)        | _diff_func (local), nx.transitivity (networkx)  |
+| compare_graphs_density                        | Computes the difference in graph density                         | _diff_func (local), nx.density (networkx)       |
+| _generate_graph_attribute_list                | Generates a list of attributes for a list of graphs              | fn (external), list (Python built-in)           |
+| _mmd_comparison_helper_func                   | Helper function to compute MMD between graph attribute lists     | _generate_graph_attribute_list (local), mmd_func (external) |
+| compare_graphs_mmd_degree                     | Computes MMD between degree distributions of two graph lists     | _mmd_comparison_helper_func (local), nx.degree_histogram (networkx) |
+| compare_graphs_mmd_clustering_coeff           | Computes MMD between clustering coefficient distributions        | _mmd_comparison_helper_func (local), graph_metrics.get_histogram_of_clustering_coeffs (external) |
+| get_orbit_stats                               | Computes orbit statistics for a list of graphs                   | orbit_stats.orca (external), np.sum (numpy)     |
+| compare_graphs_mmd_orbit_stats                | Computes MMD between orbit statistics of two graph lists         | get_orbit_stats (local), mmd_func (external)    |
+| _generate_graph_attribute_list_dict           | Generates a list of graph attributes from dictionary-like metrics| fn (external), np.array (numpy)                 |
+| _mmd_helper_func_dict                         | Helper function for MMD computation using dictionary metrics     | _generate_graph_attribute_list_dict (local), mmd_func (external) |
+| compare_graphs_mmd_degree_centrality          | Computes MMD for degree centrality distributions                 | _mmd_helper_func_dict (local), nx.degree_centrality (networkx) |
+| compare_graphs_mmd_betweenness_centrality     | Computes MMD for betweenness centrality distributions            | _mmd_helper_func_dict (local), nx.betweenness_centrality (networkx) |
+| compare_graphs_mmd_closeness_centrality       | Computes MMD for closeness centrality distributions              | _mmd_helper_func_dict (local), nx.closeness_centrality (networkx) |
+| generate_graph                                | Generates a graph using a trained model                          | generate.generate (external), nx.to_networkx_graph (networkx) |
+| generate_new_graphs                           | Generates multiple graphs based on test graphs                   | data.GraphDataSet (external), np.random.seed (numpy), np.random.shuffle (numpy), nx.barabasi_albert_graph (networkx), nx.fast_gnp_random_graph (networkx) |
+| compute_average_metric_score                  | Computes average metric score between test and generated graphs  | metric_comparison_fn (external)                 |
+| compute_average_metric_score_MMD              | Computes average MMD metric across graph distributions           | metric_comparison_fn (external)                 |
+| run_all_metrics                               | Runs all evaluation metrics on test dataset                      | compute_average_metric_score (local), compute_average_metric_score_MMD (local) |
+| evaluate_all_models                           | Evaluates all trained models with multiple metrics               | run_all_metrics (local)                         |
+| run_all_generators                            | Runs the evaluation suite for all graph generators               | evaluate_all_models (local)                     |
+| main script                                   | Executes the evaluation workflow, iterating over generators      | run_all_generators (local), open (Python built-in), write (Python built-in), close (Python built-in) |
++-----------------------------------------------+------------------------------------------------------------------+-------------------------------------------------+
+
+"""
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
