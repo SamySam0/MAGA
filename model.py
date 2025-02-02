@@ -12,13 +12,14 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 
 class GraphLevelRNN(nn.Module):
-    def __init__(self, input_size, embedding_size, hidden_size, num_layers, output_size):
+    def __init__(self, input_size, embedding_size, hidden_size, num_layers, output_size, edge_feature_len=1):
         super().__init__()
         self.input_size = input_size
         self.num_layers = num_layers
+        self.edge_feature_len = edge_feature_len
 
         self.linear_in = nn.Linear(
-            in_features=input_size,
+            in_features=input_size * edge_feature_len,
             out_features=embedding_size,
             dtype=torch.float32,
         )
@@ -41,7 +42,7 @@ class GraphLevelRNN(nn.Module):
         self.hidden = None # defaults to zeros tensor
 
     def forward(self, x, x_lens):
-        x = torch.flatten(x, 2, 3) # TODO: this fixes a bug that shouldn't exist
+        x = torch.flatten(x, 2, 3) # [batch, seq_len, input_size * edge_feature_len]
         x = self.relu(self.linear_in(x)) # [batch, seq_len, embedding_dim]
         x = pack_padded_sequence(x, x_lens, batch_first=True, enforce_sorted=False)
         x, self.hidden = self.gru(x, self.hidden) # [batch, seq_len, hidden_size]
@@ -55,12 +56,13 @@ class GraphLevelRNN(nn.Module):
 
 
 class EdgeLevelRNN(nn.Module):
-    def __init__(self, embedding_size, hidden_size, num_layers):
+    def __init__(self, embedding_size, hidden_size, num_layers, edge_feature_len=1):
         super().__init__()
         self.num_layers = num_layers
+        self.edge_feature_len = edge_feature_len
 
         self.linear_in = nn.Linear(
-            in_features=1,
+            in_features=edge_feature_len,
             out_features=embedding_size,
             dtype=torch.float32,
         )
@@ -77,7 +79,7 @@ class EdgeLevelRNN(nn.Module):
         self.mlp_out = nn.Sequential(
             nn.Linear(hidden_size, embedding_size),
             nn.ReLU(),
-            nn.Linear(embedding_size, 1),
+            nn.Linear(embedding_size, edge_feature_len),
             nn.Sigmoid(),
         )
 
@@ -99,5 +101,5 @@ class EdgeLevelRNN(nn.Module):
         x, self.hidden = self.gru(x, self.hidden) # [batch, seq_len, hidden_size]
         # Unpack (reintroduce padding)
         x, _ = pad_packed_sequence(x, batch_first=True)
-        x = self.mlp_out(x) # [batch, seq_len, 1 (sigmoid)]
+        x = self.mlp_out(x) # [batch, seq_len, edge_feature_len (1, sigmoid)]
         return x
