@@ -16,7 +16,7 @@ data:
   test_split: 0.1
 
 train:
-  epochs: 128
+  epochs: 256
   batch_size: 32
   lr: 0.003
   lr_schedule_milestones: [2400, 3000]  # Milestones for the learning rate schedule
