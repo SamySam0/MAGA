@@ -1,140 +1,190 @@
-import networkx as nx
 import numpy as np
+import networkx as nx
+import torch
 import random
-import matplotlib.pyplot as plt
-from collections import deque
+import pickle as pkl
 
-def n_community(v_size, p_inter=0.05):
+def generate_adjacency_vector_sequence(g, node_sequence):
     """
-    Generates a two-community graph using the Erdős-Rényi model.
-    
-    Parameters:
-        v_size (int): Total number of nodes in the graph (split evenly between two communities).
-        p_inter (float): Fraction of inter-community edges relative to |V|.
-    
-    Returns:
-        NetworkX Graph: A graph with two communities.
+    Generate the adjacency vector sequence for a given graph and node sequence.
+    Input:
+        g: NX graph             Graph to generate sequence
+        node_sequence: List     Node sequence to generate sequence
+    Output:
+        adjacency_vector_sequence: List     Adjacency vector sequence
     """
-    # Split the total nodes into two equal communities
-    n = v_size // 2
-    
-    # Generate Erdős-Rényi graphs for both communities
-    # each pair of nodes within the same community has a 30% chance of being connected.
-    G1 = nx.erdos_renyi_graph(n, 0.3, seed=1)
-    G2 = nx.erdos_renyi_graph(n, 0.3, seed=2)
-    
-    # Merge both communities into a single graph
-    G = nx.disjoint_union(G1, G2)
-    
-    # Get node lists for both communities
-    nodes1 = list(range(n))  # Nodes from the first community
-    nodes2 = list(range(n, 2 * n))  # Nodes from the second community
-    
-    # Number of inter-community edges to add
-    # we add exactly 0.05×∣V∣ edges between the two communities
-    num_inter_edges = int(p_inter * v_size)
-    
-    # Add inter-community edges at random
-    for _ in range(num_inter_edges):
-        n1 = random.choice(nodes1)
-        n2 = random.choice(nodes2)
-        G.add_edge(n1, n2)
-    
-    return G
 
-def generate_community_graphs(num_graphs=500):
+    return np.tril(nx.adjacency_matrix(g, node_sequence).toarray())
+
+
+def bfs(g):
     """
-    Generates a dataset of community graphs.
-    
-    Parameters:
-        num_graphs (int): Number of graphs to generate.
-    
-    Returns:
-        list: A list of generated NetworkX graphs.
+    There were two ways to do this. One is that people start from the min node values, one is randomise then do BFS.
+    Input:
+        g: NX graph             Graph to find reduced BFS sequence
+    Output:
+        bfs_sequence: List      BFS sequence
     """
-    graphs = []
-    
-    for _ in range(num_graphs):
-        # Select a random total size |V| between 60 and 160 (even numbers only)
-        v_size = random.choice(range(60, 161, 2))
+
+    a = nx.to_numpy_array(g)
+
+    reordering = np.random.permutation(g.number_of_nodes())
+    permuted_graph = nx.from_numpy_array(a[reordering, :][:, reordering])
+
+    comps = [list(comp) for comp in nx.connected_components(permuted_graph)]
+
+    traversal = []
+
+    # Perform BFS Traversal on Each Component
+    for comp in comps:
+        successor_listing = [node[1] for node in nx.bfs_successors(permuted_graph, comp[0])]
         
-        # Generate a two-community graph
-        graphs.append(n_community(v_size, p_inter=0.05))
+        traversal.append(comp[0])
+
+        for successor_list in successor_listing:
+            for successor in successor_list:
+                traversal.append(successor)
     
-    return graphs
+    return permuted_graph, traversal
 
-def bfs_ordering(graph, start_node=None):
-    """
-    Perform BFS on a given graph and return the node ordering π.
+
+class GraphDataSet(torch.utils.data.Dataset):
+    # ==========================================================
+    # PyTorch Dataset for Graph Data (GraphDataSet)
+    # ==========================================================
+    # This class extends `torch.utils.data.Dataset` to handle 
+    # graph-based datasets for deep learning models.
+    #
+    # Key Features:
+    # - Loads various graph datasets (grid, BA, protein, etc.).
+    # - Supports BFS-based node reordering for preprocessing.
+    # - Splits data into training & testing sets.
+    # - Implements `__len__()` to return dataset size.
+    # - Implements `__getitem__()` to fetch a graph sample.
+    # - Returns adjacency sequences padded to the largest graph.
+    #
+    # Integration with DataLoader:
+    # - Enables efficient batch processing & shuffling.
+    # - Supports lazy loading to avoid memory overload.
+    # - Works with PyTorch for deep learning models.
+    #
+    # Usage Example:
+    # dataset = GraphDataSet(dataset="grid")
+    # data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+    # for batch in data_loader:
+    #     print(batch["x"].shape, batch["len"])
+    #
+    # ==========================================================
+    def __init__(self, dataset, m=None, bfs=True, training=True, train_split=0.8):
+        """
+        Initialize the GraphDataSet.
+        Input:
+            dataset: String      Name of dataset to load
+            m: Int               Precalculated M-value (Ref. paper)
+            bfs: Bool            Whether to use BFS reordering
+            training: Bool       Whether to load training or testing data
+            train_split: Float   Proportion of data to use for training
+        """
+
+        self.max_node_count = -1
+        self.training = training
+        self.bfs = bfs
+        self.m = m
+
+        np.random.seed(42)
+
+        if dataset == 'community':
+            self.graphs = self.load_community_dataset()
+        else:
+            raise Exception(f"No data-loader for dataset `{dataset}`")
+
+        for g in self.graphs:
+            g.remove_edges_from(list(nx.selfloop_edges(g)))
+
+        train_size = int(len(self.graphs) * train_split)
+        self.start_idx = 0 if training else train_size
+        self.length = train_size if training else len(self.graphs) - train_size
+
+    def __len__(self):
+        return  self.length
+
+    def __getitem__(self, idx):
+        """
+        To use like sample = dataset[0]  # This calls __getitem__(self, idx)
+        n.b. Random BFS traversal happens at this stage
+
+        :return :   {'x': <M-length sequence vectors paddded to fit largest graph>,
+                    'len': <Number of sequnce vectors actually containing data>}
+        """
+        g = self.graphs[self.start_idx + idx]
+
+        if self.bfs:
+            permuted_g, bfs_seq = bfs(g)
+            adjacency_vector_seq = generate_adjacency_vector_sequence(permuted_g, bfs_seq)
+        else:
+            g = nx.convert_node_labels_to_integers(g)
+            adjacency_vector_seq = generate_adjacency_vector_sequence(g, np.random.permutation(g.nodes))
+
+        scratch = []
+
+        for i in range(1, adjacency_vector_seq.shape[0]):
+            # Data that actually can have 1s:
+            critical_strip = adjacency_vector_seq[i, max(i-self.m, 0):i]
+            m_dash = len(critical_strip)
+            scratch.append(np.pad(critical_strip, (self.m - m_dash, 0))[::-1])
+
+        result = np.array(scratch)
+        return {'x': np.pad(result, [(0, self.max_node_count - result.shape[0]), (0,0)]), 'len': result.shape[0]}
     
-    Parameters:
-        graph (networkx.Graph): Input graph.
-        start_node (int, optional): The starting node for BFS. If None, picks the smallest node.
-        
-    Returns:
-        list: BFS node ordering π.
-    """
+    def community_dataset(self, c_sizes, p_inter=0.05, p_intra=0.3):
+        """Helper function to a generate random graph using the Erdős-Rényi model.
 
-    if start_node is None:
-        start_node = min(graphs.nodes)
-
-    visited = set()
-    queue = deque([start_node])
-    pi = []
-    while queue:
-        node = queue.popleft()
-        if node not in visited:
-            visited.add(node)
-            pi.append(node)
-            queue.extend(neighbor for neighbor in graph.neighbors(node) if neighbor not in visited)
-    return pi
-
-def graph_to_S_pi(graph, pi):
-    """
-    Convert a graph to its adjacency sequence representation S^pi using BFS ordering.
+        :param c_sizes numpy_ndarray:     1-D array of number of nodes in each community in a graph
+        :param p_inter Int:               Number of intercommunity edges between communities in a graph
+       
+        :return graph:                    Random graph generated using the Erdős-Rényi model and given params
+        """    
     
-    Parameters:
-        graph (networkx.Graph): Input graph.
-        pi (list): BFS node ordering.
-    
-    Returns:
-        list: List of adjacency vectors S^pi.
-    """
-    node_index = {node: i for i, node in enumerate(pi)}  # Map nodes to BFS positions
-    S_pi = []
+        g = [nx.gnp_random_graph(c_sizes[i], p=p_intra, directed=False) for i in range(len(c_sizes))]
 
-    for i, node in enumerate(pi):
-        adjacency_vector = [0] * i  # Initialize vector for previous nodes
-        for neighbor in graph.neighbors(node):
-            if neighbor in node_index and node_index[neighbor] < i:
-                adjacency_vector[node_index[neighbor]] = 1
-        S_pi.append(adjacency_vector)
+        G = nx.disjoint_union_all(g)
 
-    return S_pi 
+        g1 = list(g[0].nodes())
+        g2 = list(g[1].nodes())
 
-def prepare_dataset(type="community"):
-    """
-    Convert a list of graphs into BFS orderings and adjacency sequences S^pi.
-    
-    Parameters:
-        graphs (list of networkx.Graph): List of input graphs.
-    
-    Returns:
-        list: List of adjacency sequences S^pi.
-    """
-    if type == "community":
-        graphs = generate_community_graphs(num_graphs=500)
-    
-    dataset = []
+        # Adding one inter-community edge by default
+        # This ensures that we have a connected graph
+        n1 = random.choice(g1)
+        n2 = random.choice(g2) + len(g1)
+        G.add_edge(n1,n2)
 
-    for graph in graphs:
-        start_node = min(graph.nodes)  # Pick smallest node as BFS start for consistency
-        # print(f"Start Node: {start_node}")
-        pi = bfs_ordering(graph, start_node)  # Step 1: Get BFS ordering
-        # print(f"BFS ordering is: {pi}")
-        S_pi = graph_to_S_pi(graph, pi)  # Step 2: Convert to adjacency sequence
-        # print(f"Adjacency sequence is: {S_pi}")
-        dataset.append(S_pi)
+        V = sum(c_sizes)
+        for i in range(int(p_inter*V)):
 
-    return dataset
+            n1 = random.choice(g1)
+            n2 = random.choice(g2) + len(g1)
+            G.add_edge(n1,n2)
+
+
+        return G
+
+    def load_community_dataset(self, graph_count=500, min_nodes=60, max_nodes=160, num_communities=2, p_inter=0.05, p_intra=0.3):
+        """Generate `graph_count` random graphs using the Erdős-Rényi model.
+
+        :param graph_count Int:     Number of graphs to produce
+        :param min_nodes Int:       Minimum number of nodes in any graph
+        :param max_nodes Int:       Maximum number of nodes in any graph
+        :param p_inter Int:         Number of intercommunity edges in any graph
+
+        :return List:               List of random graphs generated using the Erdős-Rényi model and given params
+        """
+
+        retval = []
+
+        for _ in range(graph_count):
+            c_sizes = np.random.choice(list(range(int(min_nodes/2),int(max_nodes/2)+1)), num_communities) 
+            retval.append(self.community_dataset(c_sizes, p_inter, p_intra))
+            self.max_node_count = max(self.max_node_count, sum(c_sizes))
+
+        return retval  
 
