@@ -11,88 +11,75 @@ def generate_adjacency_vector_sequence(g, node_sequence):
         g: NX graph             Graph to generate sequence
         node_sequence: List     Node sequence to generate sequence
     Output:
-        adjacency_vector_sequence: List     Adjacency vector sequence
+        adjacency_vector_sequence: np.ndarray     Adjacency vector sequence (lower triangular)
     """
 
     return np.tril(nx.adjacency_matrix(g, node_sequence).toarray())
 
-
 def bfs(g):
     """
-    There were two ways to do this. One is that people start from the min node values, one is randomise then do BFS.
+    Perform a BFS on a permuted version of g.
+
     Input:
-        g: NX graph             Graph to find reduced BFS sequence
+        g: NX graph             Graph to find BFS sequence
     Output:
-        bfs_sequence: List      BFS sequence
+        permuted_graph, traversal
     """
 
     a = nx.to_numpy_array(g)
-
     reordering = np.random.permutation(g.number_of_nodes())
     permuted_graph = nx.from_numpy_array(a[reordering, :][:, reordering])
 
     comps = [list(comp) for comp in nx.connected_components(permuted_graph)]
-
     traversal = []
 
-    # Perform BFS Traversal on Each Component
+    # Perform BFS on each connected component
     for comp in comps:
         successor_listing = [node[1] for node in nx.bfs_successors(permuted_graph, comp[0])]
-        
         traversal.append(comp[0])
-
         for successor_list in successor_listing:
             for successor in successor_list:
                 traversal.append(successor)
-    
+
     return permuted_graph, traversal
 
 
 class GraphDataSet(torch.utils.data.Dataset):
-    # ==========================================================
-    # PyTorch Dataset for Graph Data (GraphDataSet)
-    # ==========================================================
-    # This class extends `torch.utils.data.Dataset` to handle 
-    # graph-based datasets for deep learning models.
-    #
-    # Key Features:
-    # - Loads various graph datasets (grid, BA, protein, etc.).
-    # - Supports BFS-based node reordering for preprocessing.
-    # - Splits data into training & testing sets.
-    # - Implements `__len__()` to return dataset size.
-    # - Implements `__getitem__()` to fetch a graph sample.
-    # - Returns adjacency sequences padded to the largest graph.
-    #
-    # Integration with DataLoader:
-    # - Enables efficient batch processing & shuffling.
-    # - Supports lazy loading to avoid memory overload.
-    # - Works with PyTorch for deep learning models.
-    #
-    # Usage Example:
-    # dataset = GraphDataSet(dataset="grid")
-    # data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
-    # for batch in data_loader:
-    #     print(batch["x"].shape, batch["len"])
-    #
-    # ==========================================================
-    def __init__(self, dataset, m=None, bfs=True, training=True, train_split=0.8):
+    """
+    A PyTorch Dataset for Graph Data that supports BFS-based reordering
+    and flexible splitting into train, val, and test sets.
+    """
+
+    def __init__(
+        self, 
+        dataset: str, 
+        m: int = None, 
+        use_bfs: bool = True, 
+        split: str = "train", 
+        train_split: float = 0.8, 
+        val_split: float = 0.1
+    ):
         """
         Initialize the GraphDataSet.
-        Input:
-            dataset: String      Name of dataset to load
-            m: Int               Precalculated M-value (Ref. paper)
-            bfs: Bool            Whether to use BFS reordering
-            training: Bool       Whether to load training or testing data
-            train_split: Float   Proportion of data to use for training
+
+        Args:
+            dataset (str):         Name of dataset to load ("community", "community-small", etc.)
+            m (int):               Precalculated M-value (Ref. paper), controls the window size for adjacency vectors.
+            use_bfs (bool):        Whether to use BFS reordering for node sequences.
+            split (str):           Which subset to load: "train", "val", or "test".
+            train_split (float):   Fraction of data to use for training.
+            val_split (float):     Fraction of data to use for validation.
+                                   The remainder goes to test = 1 - train_split - val_split.
+
+        Raises:
+            Exception: If dataset not supported or if splits are invalid.
         """
 
-        self.max_node_count = -1
-        self.training = training
-        self.bfs = bfs
         self.m = m
+        self.use_bfs = use_bfs
+        np.random.seed(42)  # For reproducibility of random splits in BFS reordering, etc.
 
-        np.random.seed(42)
-
+        # Load the graphs
         if dataset == 'community':
             self.graphs = self.load_community_dataset()
         elif dataset == 'community-small':
@@ -100,174 +87,154 @@ class GraphDataSet(torch.utils.data.Dataset):
         else:
             raise Exception(f"No data-loader for dataset `{dataset}`")
 
+        # Remove any self-loops (if present)
         for g in self.graphs:
             g.remove_edges_from(list(nx.selfloop_edges(g)))
 
-        train_size = int(len(self.graphs) * train_split)
-        self.start_idx = 0 if training else train_size
-        self.length = train_size if training else len(self.graphs) - train_size
+        # Check splits
+        if train_split + val_split > 1.0:
+            raise ValueError(
+                f"train_split + val_split = {train_split + val_split} which is > 1.0. "
+                f"Please ensure they sum to <= 1.0"
+            )
+        
+        data_size = len(self.graphs)
+        train_size = int(data_size * train_split)
+        val_size = int(data_size * val_split)
+        test_size = data_size - train_size - val_size  # the remainder
+
+        # Shuffle indices to randomize which graphs end up in train/val/test
+        all_indices = np.arange(data_size)
+        np.random.shuffle(all_indices)
+
+        # Partition the dataset indices
+        train_indices = all_indices[:train_size]
+        val_indices = all_indices[train_size : train_size + val_size]
+        test_indices = all_indices[train_size + val_size :]
+
+        # Based on `split` argument, pick the correct subset
+        if split == "train":
+            self.indices = train_indices
+        elif split == "val":
+            self.indices = val_indices
+        elif split == "test":
+            self.indices = test_indices
+        else:
+            raise ValueError("split must be one of: ['train', 'val', 'test']")
+
+        # Compute the maximum number of nodes in any graph (for zero-padding)
+        self.max_node_count = 0
+        for idx in self.indices:
+            G = self.graphs[idx]
+            if G.number_of_nodes() > self.max_node_count:
+                self.max_node_count = G.number_of_nodes()
 
     def __len__(self):
-        return  self.length
+        return len(self.indices)
 
     def __getitem__(self, idx):
         """
-        To use like sample = dataset[0]  # This calls __getitem__(self, idx)
-        n.b. Random BFS traversal happens at this stage
+        Fetch a single graph sample from the dataset.
 
-        :return :   {'x': <M-length sequence vectors paddded to fit largest graph>,
-                    'len': <Number of sequnce vectors actually containing data>}
+        Returns:
+            {
+              'x': 2D np.ndarray of shape (max_node_count-1, m) [padded adjacency vectors]
+              'len': int, actual number of adjacency vectors used (num_nodes - 1)
+            }
         """
-        g = self.graphs[self.start_idx + idx]
+        # Convert the 'idx' to the actual index in the underlying graphs list
+        true_index = self.indices[idx]
+        G = self.graphs[true_index]
 
-        if self.bfs:
-            permuted_g, bfs_seq = bfs(g)
+        # Either BFS permute or use an integer labeling + random permutation
+        if self.use_bfs:
+            permuted_g, bfs_seq = bfs(G)
             adjacency_vector_seq = generate_adjacency_vector_sequence(permuted_g, bfs_seq)
         else:
-            g = nx.convert_node_labels_to_integers(g)
-            adjacency_vector_seq = generate_adjacency_vector_sequence(g, np.random.permutation(g.nodes))
+            # Convert nodes to 0..n-1
+            G_int = nx.convert_node_labels_to_integers(G, label_attribute=None)
+            nodes = list(G_int.nodes())
+            np.random.shuffle(nodes)  # random permutation
+            adjacency_vector_seq = generate_adjacency_vector_sequence(G_int, nodes)
 
+        # Build feature vectors from adjacency triangular matrix
         scratch = []
+        n = adjacency_vector_seq.shape[0]  # number of nodes
+        # If self.m is None, you might decide a default or compute automatically
+        m_val = self.m if self.m is not None else n - 1
+        
+        for i in range(1, n):
+            # Only the last i columns up to i, but we only take a window of size m_val
+            critical_strip = adjacency_vector_seq[i, max(i - m_val, 0) : i]
+            # Reverse + zero-pad to length m_val
+            padded_strip = np.pad(critical_strip, (m_val - len(critical_strip), 0))[::-1]
+            scratch.append(padded_strip)
 
-        for i in range(1, adjacency_vector_seq.shape[0]):
-            # Data that actually can have 1s:
-            critical_strip = adjacency_vector_seq[i, max(i-self.m, 0):i]
-            m_dash = len(critical_strip)
-            scratch.append(np.pad(critical_strip, (self.m - m_dash, 0))[::-1])
+        # Convert to numpy
+        result = np.array(scratch)  # shape = (n-1, m_val)
+        
+        # Pad to (max_node_count - 1, m_val)
+        pad_rows = self.max_node_count - result.shape[0]
+        # If the graph has only 1 node, then result is shape (0, m_val), so we pad carefully
+        if pad_rows < 0:
+            raise ValueError(
+                "Encountered a graph with more nodes than max_node_count. "
+                "Check logic or reduce BFS logic or m dimension."
+            )
+        
+        padded_result = np.pad(
+            result,
+            ((0, pad_rows), (0, 0)),  # pad along the row dimension
+            mode='constant',
+            constant_values=0
+        )
 
-        result = np.array(scratch)
-        return {'x': np.pad(result, [(0, self.max_node_count - result.shape[0]), (0,0)]), 'len': result.shape[0]}
-    
+        sample = {
+            "x": padded_result,          # shape: (max_node_count-1, m_val)
+            "len": result.shape[0]       # actual number of node-based rows
+        }
+
+        return sample
+
     def community_dataset(self, c_sizes, p_inter=0.05, p_intra=0.3):
-        """Helper function to a generate random graph using the Erdős-Rényi model.
+        """Generate a random 2-community graph based on the Erdős-Rényi model."""
+        # Create subgraphs
+        g_sub = [nx.gnp_random_graph(c_sizes[i], p=p_intra, directed=False) for i in range(len(c_sizes))]
+        G = nx.disjoint_union_all(g_sub)
 
-        :param c_sizes numpy_ndarray:     1-D array of number of nodes in each community in a graph
-        :param p_inter Int:               Number of intercommunity edges between communities in a graph
-       
-        :return graph:                    Random graph generated using the Erdős-Rényi model and given params
-        """    
-    
-        g = [nx.gnp_random_graph(c_sizes[i], p=p_intra, directed=False) for i in range(len(c_sizes))]
+        # Connect the communities minimally
+        g1 = list(g_sub[0].nodes())
+        g2 = list(g_sub[1].nodes())
 
-        G = nx.disjoint_union_all(g)
-
-        g1 = list(g[0].nodes())
-        g2 = list(g[1].nodes())
-
-        # Adding one inter-community edge by default
-        # This ensures that we have a connected graph
+        # Add one inter-community edge to ensure connectivity
         n1 = random.choice(g1)
         n2 = random.choice(g2) + len(g1)
-        G.add_edge(n1,n2)
+        G.add_edge(n1, n2)
 
+        # Add extra inter-community edges
         V = sum(c_sizes)
-        for i in range(int(p_inter*V)):
-
+        for _ in range(int(p_inter * V)):
             n1 = random.choice(g1)
             n2 = random.choice(g2) + len(g1)
-            G.add_edge(n1,n2)
-
+            G.add_edge(n1, n2)
 
         return G
 
-    def load_community_dataset(self, graph_count=500, min_nodes=60, max_nodes=160, num_communities=2, p_inter=0.05, p_intra=0.3):
-        """Generate `graph_count` random graphs using the Erdős-Rényi model.
-
-        :param graph_count Int:     Number of graphs to produce
-        :param min_nodes Int:       Minimum number of nodes in any graph
-        :param max_nodes Int:       Maximum number of nodes in any graph
-        :param p_inter Int:         Number of intercommunity edges in any graph
-
-        :return List:               List of random graphs generated using the Erdős-Rényi model and given params
-        """
-
+    def load_community_dataset(
+        self, 
+        graph_count=500, 
+        min_nodes=60, 
+        max_nodes=160, 
+        num_communities=2,
+        p_inter=0.05, 
+        p_intra=0.3
+    ):
+        """Generate `graph_count` random graphs (2-community) in a given node range."""
         retval = []
-
         for _ in range(graph_count):
-            c_sizes = np.random.choice(list(range(int(min_nodes/2),int(max_nodes/2)+1)), num_communities) 
+            c_sizes = np.random.choice(
+                list(range(int(min_nodes/2), int(max_nodes/2)+1)), 
+                num_communities
+            )
             retval.append(self.community_dataset(c_sizes, p_inter, p_intra))
-            self.max_node_count = max(self.max_node_count, sum(c_sizes))
-
-        return retval  
-
-# import torch
-# import torch.nn as nn
-# import torch.optim as optim
-
-# # Dummy model example (adjust based on your problem)
-# class SimpleGraphModel(nn.Module):
-#     def __init__(self, input_dim, hidden_dim, output_dim):
-#         super(SimpleGraphModel, self).__init__()
-#         self.fc1 = nn.Linear(input_dim, hidden_dim)
-#         self.relu = nn.ReLU()
-#         self.fc2 = nn.Linear(hidden_dim, output_dim)
-    
-#     def forward(self, x, seq_lens):
-#         # x is of shape (batch_size, max_nodes, m_value)
-#         # You might want to process only the valid sequence entries per graph using seq_lens.
-#         # For simplicity, we'll just flatten and process all entries.
-#         batch_size, max_nodes, m_value = x.size()
-#         x = x.view(batch_size * max_nodes, m_value)
-#         out = self.fc1(x)
-#         out = self.relu(out)
-#         out = self.fc2(out)
-#         # Reshape back if needed
-#         out = out.view(batch_size, max_nodes, -1)
-#         return out
-
-# # Define hyperparameters for the model
-# input_dim = m_value         # since each input vector has length m_value
-# hidden_dim = 64
-# output_dim = 10             # adjust based on your task
-
-# # Initialize model, loss function, and optimizer
-# model = SimpleGraphModel(input_dim, hidden_dim, output_dim)
-# loss_fn = nn.MSELoss()      # example loss; replace with one suitable for your problem
-# optimizer = optim.Adam(model.parameters(), lr=0.001)
-# num_epochs = 10
-
-# # Training Loop
-# for epoch in range(num_epochs):
-#     model.train()
-#     running_loss = 0.0
-#     for batch in train_loader:
-#         # batch is a dictionary with keys 'x' and 'len'
-#         # 'x' is a numpy array; convert it to a torch tensor (and to float if necessary)
-#         x = torch.tensor(batch['x'], dtype=torch.float32)
-#         seq_lens = batch['len']  # this tells you the actual sequence length per graph
-
-#         # Zero the parameter gradients
-#         optimizer.zero_grad()
-        
-#         # Forward pass
-#         outputs = model(x, seq_lens)
-        
-#         # Create dummy target for demonstration purposes.
-#         # In practice, use your actual target.
-#         target = torch.zeros_like(outputs)
-        
-#         # Compute loss
-#         loss = loss_fn(outputs, target)
-        
-#         # Backward pass and optimize
-#         loss.backward()
-#         optimizer.step()
-        
-#         running_loss += loss.item()
-    
-#     print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader):.4f}")
-    
-#     # Evaluation on test set
-#     model.eval()
-#     test_loss = 0.0
-#     with torch.no_grad():
-#         for batch in test_loader:
-#             x = torch.tensor(batch['x'], dtype=torch.float32)
-#             seq_lens = batch['len']
-#             outputs = model(x, seq_lens)
-            
-#             # Again, using a dummy target here
-#             target = torch.zeros_like(outputs)
-#             loss = loss_fn(outputs, target)
-#             test_loss += loss.item()
-#     print(f"Test Loss: {test_loss/len(test_loader):.4f}")
+        return retval
