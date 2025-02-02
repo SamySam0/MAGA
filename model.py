@@ -41,13 +41,15 @@ class GraphLevelRNN(nn.Module):
 
         self.hidden = None # defaults to zeros tensor
 
-    def forward(self, x, x_lens):
+    def forward(self, x, x_lens=None):
         x = torch.flatten(x, 2, 3) # [batch, seq_len, input_size * edge_feature_len]
         x = self.relu(self.linear_in(x)) # [batch, seq_len, embedding_dim]
-        x = pack_padded_sequence(x, x_lens, batch_first=True, enforce_sorted=False)
+        if x_lens is not None:
+            x = pack_padded_sequence(x, x_lens, batch_first=True, enforce_sorted=False)
         x, self.hidden = self.gru(x, self.hidden) # [batch, seq_len, hidden_size]
         # Unpack (reintroduce padding)
-        x, _ = pad_packed_sequence(x, batch_first=True)
+        if x_lens is not None:
+            x, _ = pad_packed_sequence(x, batch_first=True)
         x = self.linear_out(x) # [batch, seq_len, output_size]
         return x
     
@@ -95,11 +97,13 @@ class EdgeLevelRNN(nn.Module):
             hn = hn.unsqueeze(dim=0)
         self.hidden = torch.cat([hn, zeros], dim=0) # [num_layers, batch_size, hidden_size]
 
-    def forward(self, x, x_lens):
+    def forward(self, x, x_lens=None):
         x = self.relu(self.linear_in(x)) # [batch, seq_len, embedding_dim]
-        x = pack_padded_sequence(x, x_lens, batch_first=True, enforce_sorted=False)
+        if x_lens is not None:
+            x = pack_padded_sequence(x, x_lens, batch_first=True, enforce_sorted=False)
         x, self.hidden = self.gru(x, self.hidden) # [batch, seq_len, hidden_size]
         # Unpack (reintroduce padding)
-        x, _ = pad_packed_sequence(x, batch_first=True)
+        if x_lens is not None:
+            x, _ = pad_packed_sequence(x, batch_first=True)
         x = self.mlp_out(x) # [batch, seq_len, edge_feature_len (1, sigmoid)]
         return x
