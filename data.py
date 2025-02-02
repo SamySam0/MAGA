@@ -95,6 +95,8 @@ class GraphDataSet(torch.utils.data.Dataset):
 
         if dataset == 'community':
             self.graphs = self.load_community_dataset()
+        elif dataset == 'community-small':
+            self.graphs = self.load_community_dataset(min_nodes=12, max_nodes=20)
         else:
             raise Exception(f"No data-loader for dataset `{dataset}`")
 
@@ -188,3 +190,84 @@ class GraphDataSet(torch.utils.data.Dataset):
 
         return retval  
 
+# import torch
+# import torch.nn as nn
+# import torch.optim as optim
+
+# # Dummy model example (adjust based on your problem)
+# class SimpleGraphModel(nn.Module):
+#     def __init__(self, input_dim, hidden_dim, output_dim):
+#         super(SimpleGraphModel, self).__init__()
+#         self.fc1 = nn.Linear(input_dim, hidden_dim)
+#         self.relu = nn.ReLU()
+#         self.fc2 = nn.Linear(hidden_dim, output_dim)
+    
+#     def forward(self, x, seq_lens):
+#         # x is of shape (batch_size, max_nodes, m_value)
+#         # You might want to process only the valid sequence entries per graph using seq_lens.
+#         # For simplicity, we'll just flatten and process all entries.
+#         batch_size, max_nodes, m_value = x.size()
+#         x = x.view(batch_size * max_nodes, m_value)
+#         out = self.fc1(x)
+#         out = self.relu(out)
+#         out = self.fc2(out)
+#         # Reshape back if needed
+#         out = out.view(batch_size, max_nodes, -1)
+#         return out
+
+# # Define hyperparameters for the model
+# input_dim = m_value         # since each input vector has length m_value
+# hidden_dim = 64
+# output_dim = 10             # adjust based on your task
+
+# # Initialize model, loss function, and optimizer
+# model = SimpleGraphModel(input_dim, hidden_dim, output_dim)
+# loss_fn = nn.MSELoss()      # example loss; replace with one suitable for your problem
+# optimizer = optim.Adam(model.parameters(), lr=0.001)
+# num_epochs = 10
+
+# # Training Loop
+# for epoch in range(num_epochs):
+#     model.train()
+#     running_loss = 0.0
+#     for batch in train_loader:
+#         # batch is a dictionary with keys 'x' and 'len'
+#         # 'x' is a numpy array; convert it to a torch tensor (and to float if necessary)
+#         x = torch.tensor(batch['x'], dtype=torch.float32)
+#         seq_lens = batch['len']  # this tells you the actual sequence length per graph
+
+#         # Zero the parameter gradients
+#         optimizer.zero_grad()
+        
+#         # Forward pass
+#         outputs = model(x, seq_lens)
+        
+#         # Create dummy target for demonstration purposes.
+#         # In practice, use your actual target.
+#         target = torch.zeros_like(outputs)
+        
+#         # Compute loss
+#         loss = loss_fn(outputs, target)
+        
+#         # Backward pass and optimize
+#         loss.backward()
+#         optimizer.step()
+        
+#         running_loss += loss.item()
+    
+#     print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader):.4f}")
+    
+#     # Evaluation on test set
+#     model.eval()
+#     test_loss = 0.0
+#     with torch.no_grad():
+#         for batch in test_loader:
+#             x = torch.tensor(batch['x'], dtype=torch.float32)
+#             seq_lens = batch['len']
+#             outputs = model(x, seq_lens)
+            
+#             # Again, using a dummy target here
+#             target = torch.zeros_like(outputs)
+#             loss = loss_fn(outputs, target)
+#             test_loss += loss.item()
+#     print(f"Test Loss: {test_loss/len(test_loader):.4f}")
