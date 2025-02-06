@@ -2,8 +2,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from basic_vae import Encoder, Decoder
-from quantizer import VectorQuantizer
+from model.basic_vae import Encoder, Decoder
+from model.quantizer import VectorQuantizer
 
 class VQVAE(nn.Module):
     def __init__(self, 
