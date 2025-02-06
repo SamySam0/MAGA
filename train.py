@@ -10,6 +10,7 @@ from model.vqvae import VQVAE
 
 
 # ===== Initialisation =====
+torch.manual_seed(42)
 RUN_NAME = f"{datetime.now().strftime('%m_%d_%H_%M')}"
 print(f'Run name: {RUN_NAME}')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
