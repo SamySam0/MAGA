@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
 
-from vqvae import VQVAE
+from model.vqvae import VQVAE
 
 
 # ===== Initialisation =====
