@@ -8,12 +8,14 @@ model:
   commitment_cost: 0.25
 
 data:
-  path: 'data/Mutagenicity'
-  name: 'Mutagenicity'
-  train_split: 0.8
+  path: 'data/qm9'
+  name: 'qm9'
+  train_split: 0.1
+  valid_split: 0.05
+  test_split:  0.05
 
 train:
-  epochs: 2
+  epochs: 10
   batch_size: 64
   lr: 0.001
   checkpoint_dir: './checkpoints'
