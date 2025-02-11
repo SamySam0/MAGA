@@ -31,3 +31,4 @@ train:
   beta1: 0.9
   beta2: 0.99
   checkpoint_dir: './checkpoints'
+  gamma: 0.1
