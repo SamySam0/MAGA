@@ -1,11 +1,17 @@
 model:
-  channel_in: 1
-  num_hiddens: 128
-  num_res_layers: 2
-  num_res_hiddens: 32
-  codebook_size: 512
-  embedding_dim: 64
-  commitment_cost: 0.25
+  encoder:
+    n_layers: 4
+    hidden_dim: 128
+    emb_dim: 32
+  decoder:
+    n_layers: 4
+    hidden_dim: 128
+    emb_dim: 32
+  quantizer:
+    codebook_size: 1024
+    emb_dim: 8
+    commitment_cost: 0.25
+    init_steps: 1000
 
 data:
   path: 'data/qm9'
@@ -13,9 +19,15 @@ data:
   train_split: 0.1
   valid_split: 0.05
   test_split:  0.05
+  node_feature_dim: 11
+  edge_feature_dim: 4
 
 train:
-  epochs: 10
-  batch_size: 64
+  epochs: 250
+  batch_size: 32
   lr: 0.001
+  lr_decay: 0.5
+  decay_iteration: 25000
+  beta1: 0.9
+  beta2: 0.99
   checkpoint_dir: './checkpoints'

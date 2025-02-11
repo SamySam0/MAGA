@@ -1,17 +1,20 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 from model.nn_blocks import MPNNLayer, GNNLayer
 
 
 class Encoder(nn.Module):
-    def __init__(self, n_layers, hidden_dim, emb_dim):
+    def __init__(self, 
+        n_layers, hidden_dim, emb_dim,
+        in_node_feature_dim, in_edge_feature_dim, 
+        out_node_feature_dim,
+    ):
         super().__init__()
-        layers = [MPNNLayer(node_dim=11, edge_dim=4, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim)]
+        layers = [MPNNLayer(node_dim=in_node_feature_dim, edge_dim=in_edge_feature_dim, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim)]
         for _ in range(1, n_layers-1):
             layers.append(MPNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim))
-        layers.append(MPNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=16, edge_emb_dim=1))
+        layers.append(MPNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=out_node_feature_dim, edge_emb_dim=1))
         self.layers = nn.Sequential(*layers)
     
     def forward(self, batch):
@@ -25,12 +28,16 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, n_layers, hidden_dim, emb_dim):
+    def __init__(self, 
+        n_layers, hidden_dim, emb_dim,
+        in_node_feature_dim,
+        out_node_feature_dim, out_edge_feature_dim,
+    ):
         super().__init__()
-        layers = [GNNLayer(node_dim=16, edge_dim=0, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim)]
+        layers = [GNNLayer(node_dim=in_node_feature_dim, edge_dim=0, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim)]
         for _ in range(1, n_layers-1):
             layers.append(GNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim))
-        layers.append(GNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=11, edge_emb_dim=4))
+        layers.append(GNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=out_node_feature_dim, edge_emb_dim=out_edge_feature_dim))
         self.layers = nn.Sequential(*layers)
     
     def forward(self, node_feat, mask=None):

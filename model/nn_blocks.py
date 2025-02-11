@@ -43,12 +43,14 @@ class MPNNLayer(MessagePassing):
     
     def update(self, aggr_out, x):
         node_aggr_out, edge_aggr_out = aggr_out
+        # Check if skip connection is possible given pre-post dimensions
         if self.in_node_dim == self.node_emb_dim:
             node_upd = self.node_norm(x + node_aggr_out)
         else:
             node_upd = self.node_norm(node_aggr_out)
         edge_upd = self.edge_norm(edge_aggr_out)
         return node_upd, edge_upd
+
 
 class GNNLayer(nn.Module):
     def __init__(self, node_dim, edge_dim, hidden_dim, node_emb_dim, edge_emb_dim):
