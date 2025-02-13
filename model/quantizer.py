@@ -17,8 +17,9 @@ class VectorQuantizer(nn.Module):
 
         self.init_steps = init_steps
         self.collect_phase = init_steps > 0
-        self.collected_samples = torch.Tensor(0, self.embedding_dim)
+        collected_samples = torch.Tensor(0, self.embedding_dim)
         self.collect_desired_size = collect_desired_size
+        self.register_buffer("collected_samples", collected_samples)
         
     def forward(self, x, mask=None):
         # Calculate the distance between each embedding and each codebook vector
@@ -59,13 +60,14 @@ class VectorQuantizer(nn.Module):
         # If enough samples collected, initialise codebook with k++ means
         if self.collected_samples.shape[0] >= self.collect_desired_size:
             self.collected_samples = self.collected_samples[-self.collect_desired_size:]
-            self.collect = False
+            self.collect_phase = False
             self.kmeans_init()
             self.collected_samples = torch.Tensor(0, self.embedding_dim)
     
     def kmeans_init(self):
+        device = self.collected_samples.device
         collected_samples = self.collected_samples.cpu().numpy()
         # Perform k-means clustering on the entire embedding space
         k = kmeans2(collected_samples, self.codebook_size, minit='++')[0]
         # Update embedding weights with k-means centroids
-        self.embedding.weight.data = torch.from_numpy(k).to(self.embedding.device)
+        self.embedding.weight.data = torch.from_numpy(k).to(device)

@@ -86,7 +86,8 @@ class Trainer:
                 if self.model.quantizer.init_steps <= 0 and not self.model.quantizer.collect_phase:
                     print("Initialisation terminated. Final epoch's partial loss:", np.mean(epoch_loss))
                     break
-            print('Epoch training loss:', np.mean(epoch_loss))
+            else:
+                print('Epoch training loss:', np.mean(epoch_loss))
         
         # Phase 2: VQVAE training
         print('Starting Training...')
