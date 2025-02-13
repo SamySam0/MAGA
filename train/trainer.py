@@ -22,11 +22,15 @@ class Trainer:
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print(f"Number of trainable parameters in the model: {num_params}")
 
-    def step(self, batch, train: bool):
+    def step(self, batch, train: bool, init_phase: bool = False):
         if train:
             self.optimizer.zero_grad()
 
-        commitment_loss, q_latent_loss, nodes_recon, edges_recon, node_masks = self.model(batch)
+        if init_phase:
+            nodes_recon, edges_recon, node_masks = self.model.forward_init(batch)
+        else:
+            commitment_loss, q_latent_loss, nodes_recon, edges_recon, node_masks = self.model(batch)
+        
         masks = node_masks.detach(), get_edge_masks(node_masks) 
 
         recon_loss, rec_losses = get_losses(
@@ -41,7 +45,11 @@ class Trainer:
             edge_masks=masks[1],
         )
 
-        loss = recon_loss + (commitment_loss + q_latent_loss) * self.gamma
+        if init_phase:
+            loss = recon_loss
+        else:
+            loss = recon_loss + (commitment_loss + q_latent_loss) * self.gamma
+        
         if train:
             loss.backward()
             self.optimizer.step()
@@ -52,8 +60,8 @@ class Trainer:
         self.model.train()
         batch_recon_loss = []
         for batch in self.train_loader:
-            loss = self.step(batch.to(self.device), train=True)
-            batch_recon_loss.append(loss)
+            recon_loss = self.step(batch.to(self.device), train=True)
+            batch_recon_loss.append(recon_loss)
         return np.mean(batch_recon_loss)
 
     def valid_step(self):
@@ -61,63 +69,29 @@ class Trainer:
         batch_recon_loss = []
         for batch in self.valid_loader:
             with torch.no_grad():
-                loss = self.step(batch.to(self.device), train=False)
-            batch_recon_loss.append(loss)
+                recon_loss = self.step(batch.to(self.device), train=False)
+            batch_recon_loss.append(recon_loss)
         return np.mean(batch_recon_loss)
     
     def train(self):
+        # Phase 1 and 2: codebook initialisation
+        print('Starting Initialisation...')
+        while self.model.quantizer.init_steps > 0 or self.model.quantizer.collect_phase:
+            epoch_loss = []
+            for batch in self.train_loader:
+                if self.model.quantizer.init_steps == 1: 
+                    print('Starting Initialisation Phase 2...')
+                train_recon_loss = self.step(batch.to(self.device), train=True, init_phase=True)
+                epoch_loss.append(train_recon_loss)
+                if self.model.quantizer.init_steps <= 0 and not self.model.quantizer.collect_phase:
+                    print("Initialisation terminated. Final epoch's partial loss:", np.mean(epoch_loss))
+                    break
+            print('Epoch training loss:', np.mean(epoch_loss))
+        
+        # Phase 2: VQVAE training
+        print('Starting Training...')
         for epoch in range(1, self.n_epochs+1):
-            train_loss = self.train_step()
-            valid_loss = self.valid_step()
+            train_recon_loss = self.train_step()
+            valid_recon_loss = self.valid_step()
             if epoch % 10 == 0:
-                print(f"Epoch: {epoch}, Train Loss: {train_loss}, Valid Loss: {valid_loss}")
-
-
-
-
-
-
-
-
-def run_experiment(model, train_loader, val_loader, test_loader, gamma, n_epochs=100):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    
-    # LR scheduler: decays LR when validation error plateaus.
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.9, patience=5, min_lr=1e-5
-    )
-    
-    print("\nStart training:")
-    best_val_error = None
-    test_error = None
-    perf_per_epoch = []  # Records (test_error, val_error, epoch, model_name) for plotting later.
-        
-    for epoch in range(1, n_epochs + 1):
-        # Current learning rate.
-        lr = optimizer.param_groups[0]['lr']
-        
-        # Train for one epoch.
-        loss = train(model, train_loader, optimizer, gamma, device)
-        
-        # Evaluate on validation set.
-        val_error = evaluate(model, val_loader, gamma, device)
-        
-        # If validation improves, evaluate on test set.
-        if best_val_error is None or val_error <= best_val_error:
-            test_error = evaluate(model, test_loader, gamma, device)
-            best_val_error = val_error
-        
-        # Print status every 10 epochs.
-        if epoch % 10 == 0:
-            print(f"Epoch: {epoch:03d}, LR: {lr:.6f}, Train Loss: {loss:.7f}, "
-                  f"Val: {val_error:.7f}, Test: {test_error:.7f}")
-        
-        # Step the scheduler using the validation error.
-        scheduler.step(val_error)
-        perf_per_epoch.append((test_error, val_error, epoch))
-    
-    print(f"Best validation: {best_val_error:.7f}, corresponding test: {test_error:.7f}.")
-
-    return best_val_error, test_error, train_time, perf_per_epoch
+                print(f"Epoch: {epoch}, Train Loss: {train_recon_loss}, Valid Loss: {valid_recon_loss}")

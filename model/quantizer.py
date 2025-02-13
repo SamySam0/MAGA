@@ -1,10 +1,11 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from scipy.cluster.vq import kmeans2
 
 
 class VectorQuantizer(nn.Module):
-    def __init__(self, codebook_size, embedding_dim, commitment_cost):
+    def __init__(self, codebook_size, embedding_dim, commitment_cost, init_steps, collect_desired_size):
         super().__init__()
 
         self.codebook_size = codebook_size
@@ -14,6 +15,11 @@ class VectorQuantizer(nn.Module):
         self.embedding = nn.Embedding(codebook_size, embedding_dim)
         self.embedding.weight.data.uniform_(-1/codebook_size, 1/codebook_size)
 
+        self.init_steps = init_steps
+        self.collect_phase = init_steps > 0
+        self.collected_samples = torch.Tensor(0, self.embedding_dim)
+        self.collect_desired_size = collect_desired_size
+        
     def forward(self, x, mask=None):
         # Calculate the distance between each embedding and each codebook vector
         distances = (torch.sum(x**2, dim=1, keepdim=True) 
@@ -46,3 +52,20 @@ class VectorQuantizer(nn.Module):
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-8)))
         
         return quantized, commitment_loss, q_latent_loss, perplexity, encoding_indices
+
+    def collect_samples(self, zq):
+        # Collect samples
+        self.collected_samples = torch.cat((self.collected_samples, zq), dim=0)
+        # If enough samples collected, initialise codebook with k++ means
+        if self.collected_samples.shape[0] >= self.collect_desired_size:
+            self.collected_samples = self.collected_samples[-self.collect_desired_size:]
+            self.collect = False
+            self.kmeans_init()
+            self.collected_samples = torch.Tensor(0, self.embedding_dim)
+    
+    def kmeans_init(self):
+        collected_samples = self.collected_samples.cpu().numpy()
+        # Perform k-means clustering on the entire embedding space
+        k = kmeans2(collected_samples, self.codebook_size, minit='++')[0]
+        # Update embedding weights with k-means centroids
+        self.embedding.weight.data = torch.from_numpy(k).to(self.embedding.device)

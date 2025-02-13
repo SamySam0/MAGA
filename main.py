@@ -1,7 +1,7 @@
 from data.dataset import load_qm9_data
 from model.vqvae import VQVAE
 from easydict import EasyDict as edict
-from train.trainer import run_experiment, Trainer
+from train.trainer import Trainer
 import time
 import yaml
 import torch
@@ -9,7 +9,7 @@ import torch
 
 def main():
     # Load in config
-    config_path = f'configs/config.yaml'
+    config_path = f'config.yaml'
     config = edict(yaml.load(open(config_path, 'r'), Loader=yaml.FullLoader))
     
     # === Data parameters ===
