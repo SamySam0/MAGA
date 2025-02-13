@@ -14,6 +14,7 @@ class Trainer:
         self.model = VQVAE(config=config).to(self.device)
         self.train_loader, self.valid_loader = dataloaders
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.train.lr, betas=(config.train.beta1, config.train.beta2))
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=config.train.lr_decay, patience=4, min_lr=2*1e-5)
         self.gamma = config.train.gamma
         self.n_epochs = config.train.epochs
         self._log_model_parameters()
@@ -95,4 +96,5 @@ class Trainer:
             train_recon_loss = self.train_step()
             valid_recon_loss = self.valid_step()
             if epoch % 5 == 0:
-                print(f"Epoch: {epoch}, Train Loss: {train_recon_loss}, Valid Loss: {valid_recon_loss}")
+                print(f"Epoch: {epoch}, Train Loss: {train_recon_loss}, Valid Loss: {valid_recon_loss}, LR: {self.scheduler.optimizer.param_groups[0]['lr']}")
+            self.scheduler.step(valid_recon_loss)
