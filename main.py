@@ -2,6 +2,7 @@ from data.dataset import load_qm9_data
 from model.vqvae import VQVAE
 from easydict import EasyDict as edict
 from train.trainer import Trainer
+from utils.transforms import AddSpectralFeat
 import time
 import yaml
 import torch
@@ -28,6 +29,7 @@ def main():
 
     # Load the QM9 data using your helper function.
     train_loader, val_loader, test_loader = load_qm9_data(
+        transforms=[AddSpectralFeat()],
         root=data_root,
         batch_size=batch_size,
         num_workers=num_workers,

@@ -19,7 +19,7 @@ data:
   name: 'qm9'
   train_val_test_split: [0.8, 0.1, 0.1]
   dataset_size: null
-  node_feature_dim: 11
+  node_feature_dim: 16 # 11 + 5 (Spectral Features)
   edge_feature_dim: 4
 
 train:
