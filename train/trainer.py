@@ -94,5 +94,5 @@ class Trainer:
         for epoch in range(1, self.n_epochs+1):
             train_recon_loss = self.train_step()
             valid_recon_loss = self.valid_step()
-            if epoch % 10 == 0:
+            if epoch % 5 == 0:
                 print(f"Epoch: {epoch}, Train Loss: {train_recon_loss}, Valid Loss: {valid_recon_loss}")
