@@ -65,9 +65,11 @@ class VectorQuantizer(nn.Module):
             self.collected_samples = torch.Tensor(0, self.embedding_dim)
     
     def kmeans_init(self):
+        print('K++ means Codebook initialisation starting...')
         device = self.collected_samples.device
         collected_samples = self.collected_samples.cpu().numpy()
         # Perform k-means clustering on the entire embedding space
         k = kmeans2(collected_samples, self.codebook_size, minit='++')[0]
         # Update embedding weights with k-means centroids
         self.embedding.weight.data = torch.from_numpy(k).to(device)
+        print('K++ Success!')
