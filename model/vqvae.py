@@ -13,7 +13,7 @@ class VQVAE(nn.Module):
             n_layers=config.model.encoder.n_layers,
             hidden_dim=config.model.encoder.hidden_dim,
             emb_dim=config.model.encoder.emb_dim,
-            in_node_feature_dim=config.data.node_feature_dim,
+            in_node_feature_dim=config.data.node_feature_dim + config.data.additional_node_features,
             in_edge_feature_dim=config.data.edge_feature_dim,
             out_node_feature_dim=config.model.quantizer.emb_dim,
         )

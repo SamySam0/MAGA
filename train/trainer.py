@@ -11,6 +11,7 @@ from utils.func import discretize, get_edge_target, get_edge_masks
 class Trainer:
     def __init__(self, dataloaders, config):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = config
         self.model = VQVAE(config=config).to(self.device)
         self.train_loader, self.valid_loader = dataloaders
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.train.lr, betas=(config.train.beta1, config.train.beta2))
@@ -42,7 +43,7 @@ class Trainer:
             annotated_nodes=True, 
             annotated_edges=True, 
             max_node_num=9, 
-            n_node_feat=11, 
+            n_node_feat=self.config.data.node_feature_dim, 
             edge_masks=masks[1],
         )
 
