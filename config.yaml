@@ -17,14 +17,14 @@ model:
 data:
   path: 'data/qm9'
   name: 'qm9'
-  train_val_test_split: [0.8, 0.1, 0.1]
+  train_val_test_split: [0.8, 0.2, 0.0]
   dataset_size: null
   node_feature_dim: 11          # Original node features
   additional_node_features: 5   # +5 for Spectral Features
   edge_feature_dim: 4
 
 train:
-  epochs: 250
+  epochs: 25
   batch_size: 32
   lr: 0.001
   lr_decay: 0.5
