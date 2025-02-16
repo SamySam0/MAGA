@@ -21,42 +21,55 @@ class VectorQuantizer(nn.Module):
         self.collect_desired_size = collect_desired_size
         self.register_buffer("collected_samples", collected_samples)
         
-    def forward(self, x, mask=None):
-        # Calculate the distance between each embedding and each codebook vector
-        distances = (torch.sum(x**2, dim=1, keepdim=True) 
-                    + torch.sum(self.embedding.weight**2, dim=1)
-                    - 2 * torch.matmul(x, self.embedding.weight.t()))
+    def forward(self, f_BChw, mask=None):
+        f_BChw = f_BChw.permute(0, 2, 1)
+        B, C, N = f_BChw.shape
 
-        # Find the closest codebook vector (one-hot encodding)
-        encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
-        encodings = torch.zeros(encoding_indices.shape[0], self.codebook_size, device=x.device)
-        encodings.scatter_(1, encoding_indices, 1)
-
-        # Quantize
-        quantized = torch.matmul(encodings, self.embedding.weight)
+        v_patch_nums = list(range(1, N+1))
         
-        # Apply masking 
-        if mask is not None:
-            quantized = quantized * mask.unsqueeze(-1)
+        f_no_grad = f_BChw.detach()
+        f_rest = f_no_grad.clone()
+        f_hat  = torch.zeros_like(f_rest)
 
-        # Create loss that pulls encoder embeddings and codebook vector selected
-        e_latent_loss = F.mse_loss(quantized.detach(), x)
-        q_latent_loss = F.mse_loss(quantized, x.detach())
-        commitment_loss = self.commitment_cost * e_latent_loss
+        with torch.cuda.amp.autocast(enabled=False):
+            mean_q_latent_loss: torch.Tensor = 0.0
+            mean_commitment_loss: torch.Tensor = 0.0
+            SN = len(v_patch_nums)
+            for si, pn in enumerate(v_patch_nums):
+                if si != SN-1:
+                    rest_NC = F.interpolate(f_rest, size=(pn), mode='area').permute(0, 2, 1).reshape(-1, C)
+                else:
+                    rest_NC = f_rest.permute(0, 2, 1).reshape(-1, C)
+                if self.collect_phase:
+                    self.collected_samples = torch.cat((self.collected_samples, rest_NC), dim=0)
+                
+                d_no_grad = torch.sum(rest_NC.square(), dim=1, keepdim=True) + torch.sum(self.embedding.weight.data.square(), dim=1, keepdim=False)
+                d_no_grad.addmm_(rest_NC, self.embedding.weight.data.T, alpha=-2, beta=1)
+                idx_N = torch.argmin(d_no_grad, dim=1)
 
-        # Reconstructions quantized representation using the encoder embeddings
-        # to allow for backpropagation of gradients into decoder
-        # (In forward equals quantized, in backward calculates gradients on x)
-        quantized = x + (quantized - x).detach()
+                idx_Bhw = idx_N.view(B, pn)
+                if si != SN-1:
+                    h_BChw = F.interpolate(self.embedding(idx_Bhw).permute(0, 2, 1), size=(N), mode='linear').contiguous()
+                else:
+                    h_BChw = self.embedding(idx_Bhw).permute(0, 2, 1).contiguous()
+                # h_BChw = quant_resi[si/(SN-1)](h_BChw)
+                f_hat = f_hat + h_BChw
+                f_rest -= h_BChw
 
-        avg_probs = torch.mean(encodings, dim=0)
-        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-8)))
-        
-        return quantized, commitment_loss, q_latent_loss, perplexity, encoding_indices
+                mean_commitment_loss += F.mse_loss(f_hat.data, f_BChw).mul_(0.25)
+                mean_q_latent_loss += F.mse_loss(f_hat, f_no_grad)
+            
+            mean_commitment_loss *= 1. / SN
+            mean_q_latent_loss *= 1. / SN
+
+            f_hat = (f_hat.data - f_no_grad).add_(f_BChw)
+            f_hat = f_hat.permute(0, 2, 1)
+            
+            return f_hat, mean_commitment_loss, mean_q_latent_loss
 
     def collect_samples(self, zq):
         # Collect samples
-        self.collected_samples = torch.cat((self.collected_samples, zq), dim=0)
+        self.forward(zq)
         # If enough samples collected, initialise codebook with k++ means
         if self.collected_samples.shape[0] >= self.collect_desired_size:
             self.collected_samples = self.collected_samples[-self.collect_desired_size:]
@@ -67,7 +80,7 @@ class VectorQuantizer(nn.Module):
     def kmeans_init(self):
         print('K++ means Codebook initialisation starting...')
         device = self.collected_samples.device
-        collected_samples = self.collected_samples.cpu().numpy()
+        collected_samples = self.collected_samples.cpu().detach().numpy()
         # Perform k-means clustering on the entire embedding space
         k = kmeans2(collected_samples, self.codebook_size, minit='++')[0]
         # Update embedding weights with k-means centroids
