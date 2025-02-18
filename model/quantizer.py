@@ -15,6 +15,8 @@ class VectorQuantizer(nn.Module):
         self.embedding = nn.Embedding(codebook_size, embedding_dim)
         self.embedding.weight.data.uniform_(-1/codebook_size, 1/codebook_size)
 
+        self.pooling_ratio = 0.25
+
         self.init_steps = init_steps
         self.collect_phase = init_steps > 0
         collected_samples = torch.Tensor(0, self.embedding_dim)
@@ -25,7 +27,10 @@ class VectorQuantizer(nn.Module):
         f_BChw = f_BChw.permute(0, 2, 1)
         B, C, N = f_BChw.shape
 
-        v_patch_nums = list(range(1, N+1))
+        n, v_patch_nums = N, [N]
+        while n > 1:
+            n = int(n*(1-self.pooling_ratio))
+            v_patch_nums.append(n)
         
         f_no_grad = f_BChw.detach()
         f_rest = f_no_grad.clone()
