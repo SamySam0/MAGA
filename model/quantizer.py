@@ -27,10 +27,12 @@ class VectorQuantizer(nn.Module):
         f_BChw = f_BChw.permute(0, 2, 1)
         B, C, N = f_BChw.shape
 
+        # Downscale latent by pooling_ratio until unit node
         n, v_patch_nums = N, [N]
         while n > 1:
             n = int(n*(1-self.pooling_ratio))
             v_patch_nums.append(n)
+        v_patch_nums = v_patch_nums[::-1]
         
         f_no_grad = f_BChw.detach()
         f_rest = f_no_grad.clone()
