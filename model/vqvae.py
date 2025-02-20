@@ -39,20 +39,21 @@ class VQVAE(nn.Module):
         # Encoder
         out_nodes, _ = self.encoder(batch)
         # Quantizer
-        quantized, commitment_loss, q_latent_loss, perplexity, encoding_indices = self.quantizer(out_nodes)
+        out_nodes, node_masks = to_dense_batch(out_nodes, batch.batch)
+        quantized, commitment_loss, q_latent_loss = self.quantizer(out_nodes)
         # Decoder
-        quantized, node_masks = to_dense_batch(quantized, batch.batch)
         nodes_recon, edges_recon = self.decoder(quantized, mask=node_masks)
         return commitment_loss, q_latent_loss, nodes_recon, edges_recon, node_masks
     
     def forward_init(self, batch):
         out_nodes, _ = self.encoder(batch)
+        quantized, node_masks = to_dense_batch(out_nodes, batch.batch)
         # First stage: VAE-only latent training, no quantization
         if self.quantizer.init_steps > 0:
             self.quantizer.init_steps -= 1
         # Secons stage: collect latent to initialise codebook words with k++ means, no quantization
         elif self.quantizer.collect_phase:
-            self.quantizer.collect_samples(out_nodes.reshape(out_nodes.shape[0], self.quantizer.embedding_dim).detach())
-        quantized, node_masks = to_dense_batch(out_nodes, batch.batch)
+            self.quantizer.collect_samples(quantized.detach())
+        
         nodes_recon, edges_recon = self.decoder(quantized, mask=node_masks)
         return nodes_recon, edges_recon, node_masks
