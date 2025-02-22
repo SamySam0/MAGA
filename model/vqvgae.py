@@ -119,7 +119,7 @@ def interpolate_batch(graphs: Tuple[torch.Tensor], to_sizes: List[int], padding_
 
         # Add padding if necessary
         if padding_size is not None:
-            padded = torch.zeros(1, graph.size(1), padding_size)
+            padded = torch.zeros(1, graph.size(1), padding_size, device=graph.device)
             padded[:, :, :size] = graph
             graph = padded
 
