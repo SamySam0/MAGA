@@ -1,7 +1,7 @@
 from data.dataset import load_qm9_data
-from model.vqvae import VQVAE
+from model.vqvgae import VQVAE
 from easydict import EasyDict as edict
-from train.trainer import Trainer
+from train.vqvgae_trainer import Trainer
 from utils.transforms import AddSpectralFeat
 import time
 import yaml
