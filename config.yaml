@@ -11,8 +11,19 @@ model:
     codebook_size: 1024
     emb_dim: 8
     commitment_cost: 0.25
-    init_steps: 1_000       # * batch size
+    init_steps: 1_000
     collect_desired_size: 100_000
+    scales:
+      - 1
+      - 2
+      - 3 
+      - 4 
+      - 6 
+      - 9 
+      - 13 
+      - 18 
+      - 24 
+      - 32
 
 data:
   path: 'data/qm9'
@@ -34,3 +45,6 @@ train:
   checkpoint_dir: './checkpoints'
   gamma: 0.1
   lr_decay: 0.8
+
+log:
+  log_loss_per_n_epoch: 1
