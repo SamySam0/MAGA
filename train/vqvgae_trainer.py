@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import yaml
-from model.vqvae import VQVAE
+from model.vqvgae import VQVAE
 from easydict import EasyDict as edict
 from utils.losses import get_losses
 from utils.func import discretize, get_edge_target, get_edge_masks
@@ -96,6 +96,6 @@ class Trainer:
         for epoch in range(1, self.n_epochs+1):
             train_recon_loss = self.train_step()
             valid_recon_loss = self.valid_step()
-            if epoch % 5 == 0:
+            if epoch % self.config.log.log_loss_per_n_epoch == 0:
                 print(f"Epoch: {epoch}, Train Loss: {train_recon_loss}, Valid Loss: {valid_recon_loss}, LR: {self.scheduler.optimizer.param_groups[0]['lr']}")
             self.scheduler.step(valid_recon_loss)

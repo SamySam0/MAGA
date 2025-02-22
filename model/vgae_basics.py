@@ -1,7 +1,5 @@
-import torch
 from torch import nn
-
-from model.nn_blocks import MPNNLayer, GNNLayer
+from model.vgae_blocks import MPNNLayer, GNNLayer
 
 
 class Encoder(nn.Module):
