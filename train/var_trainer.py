@@ -46,9 +46,7 @@ class VAR_Trainer(object):
         self.var.train()
         ep_train_loss = []
         for it, batch in enumerate(self.train_loader):
-            # label = batch.label.to(self.device, non_blocking=True) TODO: solve labels
-            label = torch.randint(0, 11, (32,))
-            print('.')
+            label = batch.batch.bincount()
             it_loss, it_grad_norm = self.train_step(batch=batch.to(self.device), label_B=label.to(self.device))
             ep_train_loss.append(it_loss)
         return np.mean(ep_train_loss)
@@ -76,7 +74,7 @@ class VAR_Trainer(object):
         ep_eval_mean_acc, ep_eval_tail_acc = [], []
         with torch.no_grad():
             for it, batch in enumerate(self.valid_loader):
-                label = torch.randint(0, 11, (32,)) # TODO: replace
+                label = batch.batch.bincount()
                 L_mean, L_tail, acc_mean, acc_tail = self.eval_step(bathc=batch.to(self.device), label_B=label.to(self.device))
                 ep_eval_mean_loss.append(L_mean)
                 ep_eval_tail_loss.append(L_tail)

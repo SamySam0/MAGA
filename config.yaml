@@ -39,7 +39,7 @@ var:
   depth: 8
   num_heads: 8
   emb_dim: 256
-  num_classes: 10
+  num_classes: 30
   train:
     epochs: 25
     batch_size: 32
