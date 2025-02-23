@@ -5,7 +5,7 @@ import numpy as np
 
 class VAR_Trainer(object):
     def __init__(
-        self, vqvgae, var, var_optimizer, var_scheduler, dataloaders, device, L, grad_clip, label_smooth,
+        self, vqvgae, var, var_optimizer, var_scheduler, dataloaders, device, L, last_l, grad_clip, label_smooth,
     ):
         super(VAR_Trainer, self).__init__()
 
@@ -16,8 +16,10 @@ class VAR_Trainer(object):
         self.device = device
         
         self.train_loss = nn.CrossEntropyLoss(label_smoothing=label_smooth, reduction='none')
+        self.valid_loss = nn.CrossEntropyLoss(label_smoothing=0.0, reduction='mean')
         self.loss_weight = torch.ones(1, L, device=device) / L
         self.grad_clip = grad_clip
+        self.last_l = last_l
 
     def train_step(self, batch, label_B):
         # Zero gradients at the start of each step
@@ -75,7 +77,7 @@ class VAR_Trainer(object):
         with torch.no_grad():
             for it, batch in enumerate(self.valid_loader):
                 label = batch.batch.bincount()
-                L_mean, L_tail, acc_mean, acc_tail = self.eval_step(bathc=batch.to(self.device), label_B=label.to(self.device))
+                L_mean, L_tail, acc_mean, acc_tail = self.eval_step(batch=batch.to(self.device), label_B=label.to(self.device))
                 ep_eval_mean_loss.append(L_mean)
                 ep_eval_tail_loss.append(L_tail)
                 ep_eval_mean_acc.append(acc_mean)

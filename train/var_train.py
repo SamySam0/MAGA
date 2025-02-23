@@ -11,7 +11,7 @@ def train(
     trainer = VAR_Trainer(
         vqvgae=vqvgae, var=var, var_optimizer=var_optimizer, var_scheduler=var_scheduler,
         dataloaders=(train_loader, valid_loader), device=device,
-        L=sum(scales), grad_clip=grad_clip, label_smooth=label_smooth,
+        L=sum(scales), last_l=scales[-1], grad_clip=grad_clip, label_smooth=label_smooth,
     )
 
     # Training phase
