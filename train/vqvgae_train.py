@@ -72,8 +72,3 @@ def train(
         f.write('\n\n===== Time logs =====')
         f.write(f"\nDevice: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
         f.write(f"\nTraining time: {round(time.time() - start_time, 1)} seconds")
-
-
-
-if __name__ == '__main__':
-    main()

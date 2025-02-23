@@ -12,29 +12,29 @@ class VQVAE(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.encoder = Encoder(
-            n_layers=config.model.encoder.n_layers,
-            hidden_dim=config.model.encoder.hidden_dim,
-            emb_dim=config.model.encoder.emb_dim,
+            n_layers=config.vqvgae.encoder.n_layers,
+            hidden_dim=config.vqvgae.encoder.hidden_dim,
+            emb_dim=config.vqvgae.encoder.emb_dim,
             in_node_feature_dim=config.data.node_feature_dim + config.data.additional_node_features,
             in_edge_feature_dim=config.data.edge_feature_dim,
-            out_node_feature_dim=config.model.quantizer.emb_dim,
+            out_node_feature_dim=config.vqvgae.quantizer.emb_dim,
         )
 
-        self.scales = config.model.quantizer.scales
+        self.scales = config.vqvgae.quantizer.scales
         self.quantizer = Quantizer(
-            codebook_size=config.model.quantizer.codebook_size, 
-            embedding_dim=config.model.quantizer.emb_dim, 
-            commitment_cost=config.model.quantizer.commitment_cost,
-            init_steps=config.model.quantizer.init_steps,
-            collect_desired_size=config.model.quantizer.collect_desired_size,
+            codebook_size=config.vqvgae.quantizer.codebook_size, 
+            embedding_dim=config.vqvgae.quantizer.emb_dim, 
+            commitment_cost=config.vqvgae.quantizer.commitment_cost,
+            init_steps=config.vqvgae.quantizer.init_steps,
+            collect_desired_size=config.vqvgae.quantizer.collect_desired_size,
             scales=self.scales,
         )
 
         self.decoder = Decoder(
-            n_layers=config.model.decoder.n_layers, 
-            hidden_dim=config.model.decoder.hidden_dim, 
-            emb_dim=config.model.decoder.emb_dim,
-            in_node_feature_dim=config.model.quantizer.emb_dim,
+            n_layers=config.vqvgae.decoder.n_layers, 
+            hidden_dim=config.vqvgae.decoder.hidden_dim, 
+            emb_dim=config.vqvgae.decoder.emb_dim,
+            in_node_feature_dim=config.vqvgae.quantizer.emb_dim,
             out_node_feature_dim=config.data.node_feature_dim,
             out_edge_feature_dim=config.data.edge_feature_dim,
         )
@@ -91,7 +91,7 @@ class VQVAE(nn.Module):
         nodes_recon, edges_recon = self.decoder(quantized, mask=node_masks)
         return nodes_recon, edges_recon, node_masks
     
-    def img_to_idxBl(self, batch):
+    def graph_to_idxBl(self, batch):
         node_feat, _ = self.encoder(batch)
         graphs = torch.split(node_feat, batch.batch.bincount().tolist())
 

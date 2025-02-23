@@ -33,7 +33,7 @@ def main(config_path='config.yaml'):
     train_loader, val_loader, test_loader = load_qm9_data(
         transforms=[AddSpectralFeat()],
         root=config.data.path,
-        batch_size=config.train.batch_size,
+        batch_size=config.vqvgae.train.batch_size,
         num_workers=3,
         train_val_test_split=config.data.train_val_test_split,
         dataset_size=config.data.dataset_size,
@@ -42,15 +42,15 @@ def main(config_path='config.yaml'):
     # Initialise model, optimizer and scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = build_vqvgae(config, device, vqvgae_pretrain_path=None)
-    optimizer = optim.Adam(model.parameters(), lr=config.train.lr, betas=(config.train.beta1, config.train.beta2))
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=config.train.lr_decay, patience=config.train.sch_patience, min_lr=2*1e-5)
+    optimizer = optim.Adam(model.parameters(), lr=config.vqvgae.train.lr, betas=(config.vqvgae.train.beta1, config.vqvgae.train.beta2))
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=config.vqvgae.train.lr_decay, patience=config.vqvgae.train.sch_patience, min_lr=2*1e-5)
 
     # Train model
     train(
         model=model, optimizer=optimizer, scheduler=scheduler,
         train_loader=train_loader, valid_loader=val_loader,
-        device=device, train_gamma=config.train.gamma, 
-        n_epochs=config.train.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
+        device=device, train_gamma=config.vqvgae.train.gamma, 
+        n_epochs=config.vqvgae.train.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
         checkpoint_path=config.log.checkpoint_dir, checkpoint_name=checkpoint_name,
     )
 
