@@ -1,4 +1,4 @@
-import yaml
+import torch, yaml
 from easydict import EasyDict as edict
 
 from model.vqvgae import VQVAE
@@ -22,5 +22,6 @@ def build_vqvgae_and_var(config, device, vqvgae_pretrain_path=None, var_pretrain
 def build_vqvgae(config, device, vqvgae_pretrain_path=None):
     vqvgae_model = VQVAE(config=config).to(device)
     if vqvgae_pretrain_path is not None:
-        pass
+        checkpoint = torch.load(vqvgae_pretrain_path, map_location=device, weights_only=False)
+        vqvgae_model.load_state_dict(checkpoint['model_state_dict'])
     return vqvgae_model
