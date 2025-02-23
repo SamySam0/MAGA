@@ -82,7 +82,7 @@ class VAR(nn.Module):
         with torch.cuda.amp.autocast(enabled=False):
             
             # SOS token
-            label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, self.num_classes, label_B) # B, 1
+            label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, 0, label_B) # B, 1
             
             sos = cond_BD = self.class_embed(label_B) # B, C
             sos = sos.unsqueeze(1).expand(B, self.first_l, -1) + self.pos_start.expand(B, self.first_l, -1) # B, 1, C => SOS embedding (not token anymore)
