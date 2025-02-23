@@ -9,7 +9,7 @@ from model.var_basics import AdaLNSelfAttn, AdaLNBeforeHead, SharedAdaLin
 class VAR(nn.Module):
     def __init__(self,
         vqvgae, config, 
-        mlp_ratio=4.0, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0, cond_drop_rate=0.1,
+        drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.0, cond_drop_rate=0.1,
         attn_l2_norm=False, norm_eps=1e-6,
     ):
         super().__init__()
@@ -57,7 +57,7 @@ class VAR(nn.Module):
         self.blocks = nn.ModuleList([
             AdaLNSelfAttn(
                 cond_dim=self.D, block_idx=block_idx, embed_dim=self.C, norm_layer=norm_layer, 
-                num_heads=self.num_heads, mlp_ratio=mlp_ratio, drop=drop_rate, attn_drop=attn_drop_rate, 
+                num_heads=self.num_heads, mlp_ratio=config.var.train.mlp_ratio, drop=drop_rate, attn_drop=attn_drop_rate, 
                 drop_path=dpr[block_idx], last_drop_p=0 if block_idx==0 else dpr[block_idx-1], attn_l2_norm=attn_l2_norm,
             )
             for block_idx in range(self.depth)

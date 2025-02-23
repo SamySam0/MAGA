@@ -51,6 +51,7 @@ var:
     sch_patience: 4
     grad_clip: 2.0
     label_smooth: 0.0
+    mlp_ratio: 4.0
 
 data:
   path: 'data/qm9'
