@@ -32,6 +32,8 @@ class Decoder(nn.Module):
         out_node_feature_dim, out_edge_feature_dim,
     ):
         super().__init__()
+        self.out_node_feature_dim = out_node_feature_dim
+        
         layers = [GNNLayer(node_dim=in_node_feature_dim, edge_dim=0, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim)]
         for _ in range(1, n_layers-1):
             layers.append(GNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim))
