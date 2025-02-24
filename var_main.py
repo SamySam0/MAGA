@@ -34,7 +34,7 @@ def main(vqvgae_pretrain_path, config_path='config.yaml'):
         transforms=[AddSpectralFeat()],
         root=config.data.path,
         batch_size=config.var.train.batch_size,
-        num_workers=3,
+        num_workers=2,
         train_val_test_split=config.data.train_val_test_split,
         dataset_size=config.data.dataset_size,
     )
