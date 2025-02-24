@@ -214,6 +214,12 @@ def get_mol_metric(gen_mols, dataset, num_no_correct, train_smiles=None):
     metrics['valid_with_corr'] = len(gen_valid)
     return metrics
 
+def qm9_eval(node_recon, edge_recon, dataset='qm9'):
+    gen_mols, num_no_correct = gen_mol(node_recon, edge_recon, dataset)
+    metrics = get_mol_metric(gen_mols, dataset, num_no_correct)
+    valid, unique, novel, fcd, valid_w_corr = metrics.values()
+    return valid, unique, novel, fcd, valid_w_corr
+    
 
 ############################################################
 
