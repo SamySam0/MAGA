@@ -31,7 +31,7 @@ class VQVGAE_Trainer(object):
             node_masks=node_masks.unsqueeze(-1), 
             annotated_nodes=True, 
             annotated_edges=True, 
-            max_node_num=9, 
+            max_node_num=32, 
             n_node_feat=self.model.decoder.out_node_feature_dim,
             edge_masks=masks[1],
         )
