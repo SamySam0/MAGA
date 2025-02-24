@@ -14,7 +14,7 @@ def build_vqvgae_and_var(config, device, vqvgae_pretrain_path=None, var_pretrain
     if var_pretrain_path is not None:
         pass
     else:
-        # var_model.init_weight()
+        # var_model.init_weight() # TODO: add this later
         pass
     
     return vqvgae_model, var_model
