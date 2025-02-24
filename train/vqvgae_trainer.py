@@ -28,11 +28,8 @@ class VQVGAE_Trainer(object):
             batch=batch, 
             nodes_rec=nodes_recon, 
             edges_rec=edges_recon, 
-            node_masks=node_masks.unsqueeze(-1), 
-            annotated_nodes=True, 
-            annotated_edges=True, 
-            max_node_num=32, 
             n_node_feat=self.model.decoder.out_node_feature_dim,
+            node_masks=masks[0].unsqueeze(-1), 
             edge_masks=masks[1],
         )
 

@@ -35,7 +35,7 @@ class VQVAE(nn.Module):
             hidden_dim=config.vqvgae.decoder.hidden_dim, 
             emb_dim=config.vqvgae.decoder.emb_dim,
             in_node_feature_dim=config.vqvgae.quantizer.emb_dim,
-            out_node_feature_dim=config.data.node_feature_dim,
+            out_node_feature_dim=config.data.qm9_node_feature_dim,
             out_edge_feature_dim=config.data.edge_feature_dim,
         )
         
