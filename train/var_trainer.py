@@ -99,7 +99,7 @@ class VAR_Trainer(object):
         valid_s, unique_s, novel_s, fcd_s, valid_w_corr_s = [], [], [], [], [] 
         with torch.no_grad():
             for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
-                label = self.pd_graph_size.sample(batch_size)
+                label = self.pd_graph_size.sample(batch_size).to(self.device)
                 
                 nodes_recon, edges_recon = self.var.autoregressive_infer_cfg(B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0)
                 oh_nodes_recon = F.one_hot(nodes_recon[:, :, :5].argmax(dim=-1), num_classes=5)
