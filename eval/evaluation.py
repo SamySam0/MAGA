@@ -6,12 +6,14 @@ from eval.func import get_edge_target
 from eval.graph_stats.stats import eval_graph_list
 from fcd_torch import FCD
 import rdkit.Chem as Chem
+from rdkit.Chem import Draw
 from rdkit import rdBase
 import pickle
 import torch
 from torch_geometric.utils import to_dense_batch
 from torchmetrics import MeanMetric
 import random
+import os
 
 # def init_autoencoder_running_metrics(annotated_nodes):
 #     metric_names = ['loss', 'edge_loss', 'edge_acc', 'edge_acc',

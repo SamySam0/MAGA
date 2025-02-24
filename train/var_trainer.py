@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 from collections import Counter
+from typing import List
 
 from eval.evaluation import qm9_eval
 
