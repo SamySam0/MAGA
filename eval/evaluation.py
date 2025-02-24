@@ -219,7 +219,14 @@ def qm9_eval(node_recon, edge_recon, dataset='QM9'):
     metrics = get_mol_metric(gen_mols, dataset, num_no_correct)
     valid, unique, novel, valid_w_corr = metrics.values()
     return valid, unique, novel, valid_w_corr
-    
+
+def generate_molecule(node_recon, edge_recon, path="output_images", dataset="QM9"):
+    gen_mols, _ = gen_mol(node_recon, edge_recon, dataset)
+    for idx, mol in enumerate(gen_mols):
+        img = Draw.MolToImage(mol, size=(300, 300))
+        file_path = os.path.join(path, f"molecule_{idx}.png")
+        img.save(file_path)
+
 
 ############################################################
 
