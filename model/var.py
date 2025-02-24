@@ -80,30 +80,20 @@ class VAR(nn.Module):
 
     def forward(self, x_BLCv_wo_first_l, label_B):
         B = x_BLCv_wo_first_l.shape[0]
+            
+        # SOS token
+        label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, 0, label_B) # B, 1
         
-        with torch.cuda.amp.autocast(enabled=False):
-            
-            # SOS token
-            label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, 0, label_B) # B, 1
-            
-            sos = cond_BD = self.class_embed(label_B) # B, C
-            sos = sos.unsqueeze(1).expand(B, self.first_l, -1) + self.pos_start.expand(B, self.first_l, -1) # B, 1, C => SOS embedding (not token anymore)
+        sos = cond_BD = self.class_embed(label_B) # B, C
+        sos = sos.unsqueeze(1).expand(B, self.first_l, -1) + self.pos_start.expand(B, self.first_l, -1) # B, 1, C => SOS embedding (not token anymore)
 
-            # Whole sequence (SOS + sequence without first l)
-            x_BLC = torch.cat((sos, self.word_embed(x_BLCv_wo_first_l.float())), dim=1) # B, 1+L-1 (sos+l_wo_frst), C
-            x_BLC += self.lvl_embed(self.lvl_1L.expand(B, -1)) + self.pos_1LC # Add positional embedding => B, L, C
+        # Whole sequence (SOS + sequence without first l)
+        x_BLC = torch.cat((sos, self.word_embed(x_BLCv_wo_first_l.float())), dim=1) # B, 1+L-1 (sos+l_wo_frst), C
+        x_BLC += self.lvl_embed(self.lvl_1L.expand(B, -1)) + self.pos_1LC # Add positional embedding => B, L, C
 
         # Masking and SharedAdaLN
         attn_bias = self.attn_bias_for_masking # 1, 1, L, L
         cond_BD_or_gss = self.shared_ada_lin(cond_BD) # B, 1, 6, C
-
-        # Hack: get the dtype if mixed precision is used (TODO: might be able to remove this)
-        temp = x_BLC.new_ones(8, 8)
-        main_type = torch.matmul(temp, temp).dtype
-        
-        x_BLC = x_BLC.to(dtype=main_type)
-        cond_BD_or_gss = cond_BD_or_gss.to(dtype=main_type)
-        attn_bias = attn_bias.to(dtype=main_type)
 
         # Backbone
         for block in self.blocks:

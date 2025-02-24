@@ -110,7 +110,7 @@ class VAR_Trainer(object):
                 unique_s.append(unique)
                 novel_s.append(novel)
                 valid_w_corr_s.append(valid_w_corr)
-        return np.mean(valid_s), np.mean(unique_s), np.mean(novel_s), np.mean(valid_w_corr_s)
+        return sum(valid_s)/n_samples, np.mean(unique_s), np.mean(novel_s), sum(valid_w_corr_s)/n_samples
 
 
 class CategoricalGraphSize:
