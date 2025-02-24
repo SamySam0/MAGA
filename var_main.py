@@ -48,8 +48,8 @@ def main(vqvgae_pretrain_path, config_path='config.yaml'):
     # Train model
     train(
         vqvgae=vqvgae, var=var, var_optimizer=var_optimizer, var_scheduler=var_scheduler, 
-        train_loader=train_loader, valid_loader=val_loader,
-        device=device, scales=config.vqvgae.quantizer.scales, grad_clip=config.var.train.grad_clip, label_smooth=config.var.train.label_smooth, 
+        train_loader=train_loader, valid_loader=val_loader, device=device,
+        scales=config.vqvgae.quantizer.scales, grad_clip=config.var.train.grad_clip, label_smooth=config.var.train.label_smooth, n_exp_samples=config.data.n_exp_samples, 
         n_epochs=config.var.train.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
         checkpoint_path=config.log.checkpoint_dir, checkpoint_name=checkpoint_name,
     )

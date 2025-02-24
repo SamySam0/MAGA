@@ -58,6 +58,7 @@ data:
   node_feature_dim: 11          # Original node features
   additional_node_features: 5   # +5 for Spectral Features
   edge_feature_dim: 4
+  n_exp_samples: 128
 
 log:
   checkpoint_dir: './checkpoints'

@@ -1,6 +1,10 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 import numpy as np
+from collections import Counter
+
+from eval.evaluation import qm9_eval
 
 
 class VAR_Trainer(object):
@@ -20,6 +24,8 @@ class VAR_Trainer(object):
         self.loss_weight = torch.ones(1, L, device=device) / L
         self.grad_clip = grad_clip
         self.last_l = last_l
+
+        self.pd_graph_size = CategoricalGraphSize(self.train_loader)
 
     def train_step(self, batch, label_B):
         # Zero gradients at the start of each step
@@ -85,3 +91,41 @@ class VAR_Trainer(object):
         
         self.var_scheduler.step(np.mean(ep_eval_tail_loss))
         return np.mean(ep_eval_mean_loss), np.mean(ep_eval_tail_loss), np.mean(ep_eval_mean_acc), np.mean(ep_eval_tail_acc)
+
+    def qm9_exp(self, n_samples, batch_size):
+        self.var.eval()
+        assert n_samples % batch_size == 0, f'n_samples ({n_samples}) must be divisible by the batch_size ({batch_size})!'
+        valid_s, unique_s, novel_s, fcd_s, valid_w_corr_s = [], [], [], [], [] 
+        with torch.no_grad():
+            for batch in range(n_samples//batch_size):
+                label = self.pd_graph_size.sample(batch_size)
+                
+                nodes_recon, edges_recon = self.var.autoregressive_infer_cfg(B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0)
+                oh_nodes_recon = F.one_hot(nodes_recon[:, :, :5].argmax(dim=-1), num_classes=5)
+                oh_edges_recon = F.one_hot(edges_recon.argmax(dim=-1), num_classes=4)
+                valid, unique, novel, valid_w_corr = qm9_eval(oh_nodes_recon, oh_edges_recon.permute(0, 3, 1, 2))
+
+                valid_s.append(valid)
+                unique_s.append(unique)
+                novel_s.append(novel)
+                valid_w_corr_s.append(valid_w_corr)
+        return np.mean(valid_s), np.mean(unique_s), np.mean(novel_s), np.mean(valid_w_corr_s)
+
+
+class CategoricalGraphSize:
+    def __init__(self, train_loader):
+        # Collect all graph sizes
+        graph_sizes = []
+        for batch in train_loader:
+            sizes = batch.batch.bincount().tolist()
+            graph_sizes.extend(sizes)
+        
+        counts = Counter(graph_sizes)
+        total = sum(counts.values())
+        density = {item: count / total for item, count in counts.items()}
+
+        self.items = list(density.keys())
+        self.probabilities = list(density.values())
+    
+    def sample(self, n_samples):
+        return torch.tensor(np.random.choice(self.items, size=n_samples, p=self.probabilities))
