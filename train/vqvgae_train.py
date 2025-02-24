@@ -16,9 +16,12 @@ def train(
 
     # Training phase 1 and 2: codebook initialisation
     start_time = time.time()
-    print('Starting Initialisation...')
-    init_loss = round(trainer.init_codebook_training(), 5)
-    print("Initialisation terminated. Final epoch's partial loss:", init_loss)
+    if trainer.model.quantizer.init_steps > 0 or trainer.model.quantizer.collect_phase:
+        print('Starting Initialisation...')
+        init_loss = round(trainer.init_codebook_training(), 5)
+        print("Initialisation terminated. Final epoch's partial loss:", init_loss)
+    else:
+        init_loss = None
     
     # Training phase 2: VQVAE training
     train_recon_errors, valid_recon_errors, lrs = [], [], []
