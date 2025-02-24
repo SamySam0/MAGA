@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
+from tqdm import tqdm
 from collections import Counter
 
 from eval.evaluation import qm9_eval
@@ -53,7 +54,7 @@ class VAR_Trainer(object):
     def train_ep(self):
         self.var.train()
         ep_train_loss = []
-        for it, batch in enumerate(self.train_loader):
+        for it, batch in tqdm(enumerate(self.train_loader), total=len(self.train_loader), desc='Training', leave=False):
             label = batch.batch.bincount()
             it_loss, it_grad_norm = self.train_step(batch=batch.to(self.device), label_B=label.to(self.device))
             ep_train_loss.append(it_loss)
@@ -81,7 +82,7 @@ class VAR_Trainer(object):
         ep_eval_mean_loss, ep_eval_tail_loss = [], []
         ep_eval_mean_acc, ep_eval_tail_acc = [], []
         with torch.no_grad():
-            for it, batch in enumerate(self.valid_loader):
+            for it, batch in tqdm(enumerate(self.valid_loader), total=len(self.valid_loader), desc='Evaluation (valid)', leave=False):
                 label = batch.batch.bincount()
                 L_mean, L_tail, acc_mean, acc_tail = self.eval_step(batch=batch.to(self.device), label_B=label.to(self.device))
                 ep_eval_mean_loss.append(L_mean)
@@ -97,7 +98,7 @@ class VAR_Trainer(object):
         assert n_samples % batch_size == 0, f'n_samples ({n_samples}) must be divisible by the batch_size ({batch_size})!'
         valid_s, unique_s, novel_s, fcd_s, valid_w_corr_s = [], [], [], [], [] 
         with torch.no_grad():
-            for batch in range(n_samples//batch_size):
+            for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
                 label = self.pd_graph_size.sample(batch_size)
                 
                 nodes_recon, edges_recon = self.var.autoregressive_infer_cfg(B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0)
