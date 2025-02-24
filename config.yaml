@@ -35,9 +35,9 @@ vqvgae:
     sch_patience: 4
 
 var:
-  depth: 3
-  num_heads: 3
-  emb_dim: 192
+  depth: 4
+  num_heads: 4
+  emb_dim: 128
   num_classes: 30
   train:
     epochs: 25
