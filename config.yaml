@@ -28,26 +28,24 @@ vqvgae:
     epochs: 10
     batch_size: 32
     lr: 0.001
-    lr_decay: 0.5
     beta1: 0.9
     beta2: 0.99
     gamma: 0.1
-    lr_decay: 0.8
+    lr_decay: 0.7
     sch_patience: 4
 
 var:
-  depth: 8
-  num_heads: 8
-  emb_dim: 256
+  depth: 3
+  num_heads: 3
+  emb_dim: 192
   num_classes: 30
   train:
     epochs: 25
     batch_size: 32
-    lr: 0.001
-    lr_decay: 0.5
+    lr: 0.005
+    lr_decay: 0.7
     beta1: 0.9
     beta2: 0.99
-    lr_decay: 0.8
     sch_patience: 4
     grad_clip: 2.0
     label_smooth: 0.0
