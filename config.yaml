@@ -59,6 +59,7 @@ data:
   additional_node_features: 5   # +5 for Spectral Features
   edge_feature_dim: 4
   n_exp_samples: 128
+  qm9_node_feature_dim: 5
 
 zinc:
   path: 'data/zinc'
