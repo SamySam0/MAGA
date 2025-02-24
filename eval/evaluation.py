@@ -1,9 +1,9 @@
-from chem_func import mols_to_smiles
-from mol_utils import mols_to_nx, load_smiles, gen_mol
-from sample import sample
-from func import get_edge_target
+from eval.chem_func import mols_to_smiles
+from eval.mol_utils import mols_to_nx, load_smiles, gen_mol
+from eval.sample import sample
+from eval.func import get_edge_target
 
-from graph_stats.stats import eval_graph_list
+from eval.graph_stats.stats import eval_graph_list
 from fcd_torch import FCD
 import rdkit.Chem as Chem
 from rdkit import rdBase
@@ -210,15 +210,15 @@ def get_mol_metric(gen_mols, dataset, num_no_correct, train_smiles=None):
     # metrics['nspdk'] = eval_graph_list(test_graph_list[:1000], mols_to_nx(gen_mols), methods=['nspdk'])['nspdk']
     # TODO: Make the computation of fcd more efficient
     # print(gen_smiles)
-    metrics['fcd'] = FCD(n_jobs=0, device=device)(ref=test_smiles, gen=gen_smiles)
+    # metrics['fcd'] = FCD(n_jobs=0, device=device)(ref=test_smiles, gen=gen_smiles)
     metrics['valid_with_corr'] = len(gen_valid)
     return metrics
 
-def qm9_eval(node_recon, edge_recon, dataset='qm9'):
+def qm9_eval(node_recon, edge_recon, dataset='QM9'):
     gen_mols, num_no_correct = gen_mol(node_recon, edge_recon, dataset)
     metrics = get_mol_metric(gen_mols, dataset, num_no_correct)
-    valid, unique, novel, fcd, valid_w_corr = metrics.values()
-    return valid, unique, novel, fcd, valid_w_corr
+    valid, unique, novel, valid_w_corr = metrics.values()
+    return valid, unique, novel, valid_w_corr
     
 
 ############################################################

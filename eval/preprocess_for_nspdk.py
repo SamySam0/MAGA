@@ -6,7 +6,7 @@ import os
 import sys
 
 import argparse
-from mol_utils import mols_to_nx, smiles_to_mols
+from eval.mol_utils import mols_to_nx, smiles_to_mols
 
 
 parser = argparse.ArgumentParser(description='')

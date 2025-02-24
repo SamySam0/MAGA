@@ -1,6 +1,6 @@
 import torch
 from torch.distributions.categorical import Categorical
-from func import get_edge_masks, discretize
+from eval.func import get_edge_masks, discretize
 import time
 
 

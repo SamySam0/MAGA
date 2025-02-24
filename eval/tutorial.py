@@ -2,8 +2,8 @@ import torch
 from rdkit.Chem import Draw
 import os
 
-from mol_utils import gen_mol
-from evaluation import get_mol_metric
+from eval.mol_utils import gen_mol
+from eval.evaluation import get_mol_metric
 
 
 ###### Dummy Examples ######
