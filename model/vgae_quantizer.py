@@ -44,11 +44,11 @@ class VectorQuantizer(nn.Module):
                 d_no_grad.addmm_(rest_NC, self.embedding.weight.data.T, alpha=-2, beta=1)
                 idx_N = torch.argmin(d_no_grad, dim=1)
 
-                idx_Bhw = idx_N.view(B, pn)
-                h_BChw = F.interpolate(self.embedding(idx_Bhw).permute(0, 2, 1), size=(N), mode='linear').contiguous()
+                idx_Bn = idx_N.view(B, pn)
+                h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
 
-                f_hat = f_hat + h_BChw
-                f_rest -= h_BChw
+                f_hat = f_hat + h_BCn
+                f_rest -= h_BCn
 
                 mean_commitment_loss += F.mse_loss(f_hat.data, f_BCN).mul_(0.25)
                 mean_q_latent_loss += F.mse_loss(f_hat, f_no_grad)
@@ -99,10 +99,10 @@ class VectorQuantizer(nn.Module):
             d_no_grad.addmm_(z_NC, self.embedding.weight.data.T, alpha=-2, beta=1)
             idx_N = torch.argmin(d_no_grad, dim=1)
             
-            idx_Bhw = idx_N.view(B, pn)
-            h_BChw = F.interpolate(self.embedding(idx_Bhw).permute(0, 2, 1), size=(N), mode='linear').contiguous()
-            f_hat.add_(h_BChw)
-            f_rest.sub_(h_BChw)
+            idx_Bn = idx_N.view(B, pn)
+            h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
+            f_hat.add_(h_BCn)
+            f_rest.sub_(h_BCn)
 
             idx_Bl.append(idx_N.reshape(B, pn))
         
@@ -121,3 +121,11 @@ class VectorQuantizer(nn.Module):
             next_scales.append(F.interpolate(f_hat, size=(pn_next), mode='area').view(B, C, -1).transpose(1, 2))
         
         return torch.cat(next_scales, dim=1) # cat BlCs to BLC
+    
+    def get_next_autoregressive_input(self, si: int, SN: int, f_hat, h_BCn):
+        N = self.scales[-1]
+        h = F.interpolate(h_BCn, size=(N), mode='linear')
+        f_hat.add_(h)
+        if si == SN-1:
+            return f_hat, f_hat
+        return f_hat, F.interpolate(f_hat, size=(self.scales[si+1]), mode='area')

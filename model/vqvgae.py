@@ -103,6 +103,17 @@ class VQVAE(nn.Module):
         ) # B, max_scale, C
 
         return self.quantizer.f_to_idxBl(interpolated_nodes)
+    
+    def fhat_to_graph(self, f_hat, original_sizes):
+        node_masks = sizes_to_mask(original_sizes, max_size=self.scales[-1], device=f_hat.device)
+        graphs = torch.split(f_hat.permute(0, 2, 1), 1)
+        interpolated_nodes = interpolate_batch(
+            graphs=graphs, to_sizes=original_sizes, padding_size=node_masks.size(1),
+        ) # B, max_nodes, C
+
+        # Decoder
+        nodes_recon, edges_recon = self.decoder(interpolated_nodes, mask=node_masks)
+        return nodes_recon, edges_recon
 
 
 def interpolate_batch(graphs: Tuple[torch.Tensor], to_sizes: List[int], padding_size: int = None):
@@ -126,3 +137,11 @@ def interpolate_batch(graphs: Tuple[torch.Tensor], to_sizes: List[int], padding_
         interpolated_nodes.append(graph.transpose(1, 2).squeeze(0))
     
     return torch.stack(interpolated_nodes)
+
+def sizes_to_mask(original_sizes, max_size, device):
+    ''' Convert list of graph sizes to a binary mask. '''
+    B = len(original_sizes)
+    mask = torch.zeros(B, max_size, device=device)
+    for i, size in enumerate(original_sizes):
+        mask[i, :size] = 1
+    return mask.bool()

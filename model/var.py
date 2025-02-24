@@ -4,6 +4,7 @@ from functools import partial
 from typing import Tuple
 
 from model.var_basics import AdaLNSelfAttn, AdaLNBeforeHead, SharedAdaLin
+from model.var_helpers import sample_with_top_k_top_p
 
 
 class VAR(nn.Module):
@@ -34,6 +35,7 @@ class VAR(nn.Module):
         self.word_embed = nn.Linear(self.Cvae, self.C)
         quant: VectorQuantizer = vqvgae.quantizer
         self.vae_quant_proxy: Tuple[VectorQuantizer] = (quant, )
+        self.vae_proxy: Tuple[VQVGAE] = (vqvgae, )
         
         # Class embedding
         init_std = math.sqrt(1 / self.C / 3)
@@ -109,3 +111,42 @@ class VAR(nn.Module):
         x_BLC = self.head(self.head_nm(x_BLC.float(), cond_BD).float()).float() # codeword for each L => B, L, V
         
         return x_BLC
+
+    def autoregressive_infer_cfg(self, B, label_B, cfg, top_k, top_p):
+        sos = cond_BD = self.class_embed(torch.cat((label_B, torch.full_like(label_B, fill_value=0)), dim=0))
+
+        lvl_pos = self.lvl_embed(self.lvl_1L) + self.pos_1LC
+        next_token_map = sos.unsqueeze(1).expand(2*B, self.first_l, -1) + self.pos_start.expand(2*B, self.first_l, -1) + lvl_pos[:, :self.first_l]
+
+        cur_L = 0
+        f_hat = sos.new_zeros(B, self.Cvae, self.scales[-1])
+        for block in self.blocks:
+            block.attn.kv_caching(True)
+        
+        for si, pn in enumerate(self.scales):
+            ratio = si / self.num_scales_minus_1
+            cur_L += pn
+
+            cond_BD_or_gss = self.shared_ada_lin(cond_BD)
+            x = next_token_map
+            for block in self.blocks:
+                x = block(x=x, cond_BD=cond_BD_or_gss, attn_bias=None)
+            logits_BLV = self.head(self.head_nm(x.float(), cond_BD).float()).float() # codeword for each L => B, L, V
+
+            t = cfg * ratio
+            logits_BLV = (1+t) * logits_BLV[:B] - t * logits_BLV[B:]
+
+            idx_Bl = sample_with_top_k_top_p(logits_BLV, rng=None, top_k=top_k, top_p=top_p, num_samples=1)[:, :, 0]
+            h_BCn = self.vae_quant_proxy[0].embedding(idx_Bl)   # B, l, Cvae
+            
+            h_BCn = h_BCn.transpose_(1, 2).reshape(B, self.Cvae, pn)
+            f_hat, next_token_map = self.vae_quant_proxy[0].get_next_autoregressive_input(si, len(self.scales), f_hat, h_BCn)
+            if si != self.num_scales_minus_1:
+                next_token_map = next_token_map.view(B, self.Cvae, -1).transpose(1, 2)
+                next_token_map = self.word_embed(next_token_map) + lvl_pos[:, cur_L:cur_L + self.scales[si+1]]
+                next_token_map = next_token_map.repeat(2, 1, 1)   # double the batch sizes due to CFG
+        
+        for block in self.blocks:
+            block.attn.kv_caching(False)
+        
+        return self.vae_proxy[0].fhat_to_graph(f_hat, original_sizes=label_B)
