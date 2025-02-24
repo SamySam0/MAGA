@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from tqdm import tqdm
 from utils.losses import get_losses
 from utils.func import get_edge_masks
 
@@ -47,7 +48,7 @@ class VQVGAE_Trainer(object):
     def train_ep(self):
         self.model.train()
         batch_recon_loss = []
-        for batch in self.train_loader:
+        for batch in tqdm(self.train_loader, total=len(self.train_loader), desc='Training', leave=False):
             recon_loss = self.step(batch.to(self.device), train=True)
             batch_recon_loss.append(recon_loss)
         return np.mean(batch_recon_loss)
@@ -55,7 +56,7 @@ class VQVGAE_Trainer(object):
     def valid_ep(self):
         self.model.eval()
         batch_recon_loss = []
-        for batch in self.valid_loader:
+        for batch in tqdm(self.valid_loader, total=len(self.valid_loader), desc='Evaluation (valid)', leave=False):
             with torch.no_grad():
                 recon_loss = self.step(batch.to(self.device), train=False)
             batch_recon_loss.append(recon_loss)
