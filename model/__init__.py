@@ -12,10 +12,10 @@ def build_vqvgae_and_var(config, device, vqvgae_pretrain_path=None, var_pretrain
     # Build (and load) VAR moodel
     var_model = VAR(vqvgae=vqvgae_model, config=config).to(device)
     if var_pretrain_path is not None:
-        pass
+        checkpoint = torch.load(var_pretrain_path, map_location=device, weights_only=False)
+        var_model.load_state_dict(checkpoint['model_state_dict'])
     else:
-        # var_model.init_weight() # TODO: add this later
-        pass
+        var_model.init_weights()
     
     return vqvgae_model, var_model
 
