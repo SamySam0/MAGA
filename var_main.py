@@ -60,6 +60,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--vqvgae_pretrain_path', '-p', type=str, required=True,
                       help='Path to pretrained VQVGAE model')
+    parser.add_argument('--config_path', '-c', type=str, required=False, default='config.yaml',
+                      help='Path to config.yaml file')
     
     args = parser.parse_args()
-    main(vqvgae_pretrain_path=args.vqvgae_pretrain_path)
+    main(vqvgae_pretrain_path=args.vqvgae_pretrain_path, config_path=args.config_path)
