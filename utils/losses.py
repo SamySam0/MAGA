@@ -33,7 +33,6 @@ def get_node_loss_and_recon(batch, nodes_rec, node_masks, n_node_feat):
     nodes_rec = torch.cat((nodes_rec[:, :, :n_node_feat], none_type), dim=-1)
     return node_loss, nodes_rec, target
 
-
 def get_edge_loss_and_recon(batch, edges_rec, edge_masks):
     '''
     Return the loss for the edge features and the reconstructed and discretized instance
@@ -48,3 +47,21 @@ def get_edge_loss_and_recon(batch, edges_rec, edge_masks):
     edges_rec = discretize(edges_rec, edge_masks)
     edges_rec[:, :, :, 0] = edges_rec[:, :, :, 0] + (1-edge_masks.squeeze())
     return edge_loss, edges_rec
+
+
+def discretize(score, masks=None):
+    argmax = score.argmax(-1)
+    device = score.device
+    rec = torch.eye(score.shape[-1]).to(device)[argmax]
+    if masks is not None:
+        rec = rec * masks
+    return rec
+
+def get_edge_target(batch):
+    dense_edge_attr = to_dense_adj(batch.edge_index, batch=batch.batch, edge_attr=batch.edge_attr)
+    if len(dense_edge_attr.shape) == 3:
+        return dense_edge_attr
+    else:
+        no_edge = 1 - dense_edge_attr.sum(-1, keepdim=True)
+        dense_edge_attr = torch.cat((no_edge, dense_edge_attr), dim=-1)
+        return dense_edge_attr.argmax(-1)
