@@ -229,7 +229,7 @@ def generate_molecule(node_recon, edge_recon, path="output_images", dataset="QM9
         file_path = os.path.join(path, f"molecule_{idx}.png")
         img.save(file_path)
 
-def zinc_eval(node_recon, edge_recon, path='output_images', dataset='ZINC250k'):
+def zinc_eval(node_recon, edge_recon, path='output_images', dataset='zinc'):
     gen_mols, num_no_correct = gen_mol(node_recon, edge_recon, dataset)
     metrics = get_mol_metric(gen_mols, dataset, num_no_correct)
     valid, unique, novel, valid_w_corr = metrics.values()
