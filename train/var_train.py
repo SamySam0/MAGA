@@ -4,7 +4,7 @@ from train.var_trainer import VAR_Trainer
 
 def train(
     vqvgae, var, var_optimizer, var_scheduler, train_loader, valid_loader, device,
-    scales, grad_clip, label_smooth, n_epochs, log_loss_per_n_epoch, n_exp_samples,
+    scales, grad_clip, label_smooth, n_epochs, exp_batch_size, log_loss_per_n_epoch, n_exp_samples,
     checkpoint_path, checkpoint_name,
 ):  
     # Setup trainer
@@ -25,7 +25,7 @@ def train(
         train_loss = round(trainer.train_ep(), 5)
         val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc = trainer.eval_ep()
         val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc = round(val_mean_loss, 5), round(val_tail_loss, 5), round(val_mean_acc, 5), round(val_tail_acc, 5)
-        valid_s, unique_s, novel_s, valid_w_corr_s = trainer.qm9_exp(n_samples=n_exp_samples, batch_size=64)
+        valid_s, unique_s, novel_s, valid_w_corr_s = trainer.qm9_exp(n_samples=n_exp_samples, batch_size=exp_batch_size)
         valid_s, unique_s, novel_s, valid_w_corr_s = round(valid_s, 5), round(unique_s, 5), round(novel_s, 5), round(valid_w_corr_s, 5)
         if epoch % log_loss_per_n_epoch == 0 or epoch == n_epochs:
             print(f"Epoch: {epoch}, Train Loss: {train_loss},", end=' ')
