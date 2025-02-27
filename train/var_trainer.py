@@ -99,21 +99,25 @@ class VAR_Trainer(object):
     def qm9_exp(self, n_samples, batch_size):
         self.var.eval()
         assert n_samples % batch_size == 0, f'n_samples ({n_samples}) must be divisible by the batch_size ({batch_size})!'
-        valid_s, unique_s, novel_s, fcd_s, valid_w_corr_s = [], [], [], [], [] 
+        all_annots, all_adjs = [], []
+        
         with torch.no_grad():
             for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
                 label = self.pd_graph_size.sample(batch_size).to(self.device)
                 
-                nodes_recon, edges_recon, node_masks = self.var.autoregressive_infer_cfg(B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0)
+                nodes_recon, edges_recon, node_masks = self.var.autoregressive_infer_cfg(
+                    B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0
+                )
                 edge_masks = get_edge_masks(node_masks) 
                 annots_recon, adjs_recon = prepare_for_exp(nodes_recon, edges_recon, node_masks, edge_masks)
-                valid, unique, novel, valid_w_corr = qm9_eval(annots_recon, adjs_recon)
-
-                valid_s.append(valid)
-                unique_s.append(unique)
-                novel_s.append(novel)
-                valid_w_corr_s.append(valid_w_corr)
-        return sum(valid_s)/n_samples, np.mean(unique_s), np.mean(novel_s), sum(valid_w_corr_s)/n_samples
+                all_annots.append(annots_recon)
+                all_adjs.append(adjs_recon)
+        
+        all_annots = torch.cat(all_annots, dim=0)
+        all_adjs = torch.cat(all_adjs, dim=0)
+        
+        valid, unique, novel, valid_w_corr = qm9_eval(all_annots, all_adjs)
+        return valid/n_samples, unique, novel, valid_w_corr/n_samples
 
 
 class CategoricalGraphSize:

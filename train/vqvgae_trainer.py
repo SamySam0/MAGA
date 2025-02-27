@@ -71,20 +71,22 @@ class VQVGAE_Trainer(object):
     
     def qm9_exp(self):
         self.model.eval()
-        valid_s, unique_s, novel_s, fcd_s, valid_w_corr_s = [], [], [], [], [] 
+        all_annots, all_adjs = [], []
+        
         for batch in tqdm(self.valid_loader, total=len(self.valid_loader), desc='Experiment: Molecule Validity', leave=False):
             with torch.no_grad():
                 annots_recon, adjs_recon, node_masks, edge_masks = self.step(batch.to(self.device), train=False, experimenting=True)
                 annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks)
-                valid, unique, novel, valid_w_corr = qm9_eval(annots_recon, adjs_recon)
-
-                valid_s.append(valid)
-                unique_s.append(unique)
-                novel_s.append(novel)
-                valid_w_corr_s.append(valid_w_corr)
+                all_annots.append(annots_recon)
+                all_adjs.append(adjs_recon)
         
+        all_annots = torch.cat(all_annots, dim=0)
+        all_adjs = torch.cat(all_adjs, dim=0)
+        
+        valid, unique, novel, valid_w_corr = qm9_eval(all_annots, all_adjs)
         n_samples = sum(len(batch.batch.bincount()) for batch in self.valid_loader)
-        return sum(valid_s)/n_samples, np.mean(unique_s), np.mean(novel_s), sum(valid_w_corr_s)/n_samples
+        
+        return valid/n_samples, unique, novel, valid_w_corr/n_samples
     
     def init_codebook_training(self):
         while self.model.quantizer.init_steps > 0 or self.model.quantizer.collect_phase:
