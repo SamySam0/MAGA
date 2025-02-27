@@ -6,6 +6,7 @@ from eval.func import get_edge_target
 from eval.graph_stats.stats import eval_graph_list
 from fcd_torch import FCD
 import rdkit.Chem as Chem
+from rdkit.Chem import Draw
 from rdkit import rdBase
 import pickle
 import torch
@@ -13,6 +14,7 @@ from torch_geometric.utils import to_dense_batch
 from torchmetrics import MeanMetric
 from moses.metrics.metrics import get_all_metrics
 import random
+import os
 
 # def init_autoencoder_running_metrics(annotated_nodes):
 #     metric_names = ['loss', 'edge_loss', 'edge_acc', 'edge_acc',
@@ -250,7 +252,6 @@ def visualise_molecule(node_recon, edge_recon, path="output_images", dataset="QM
         img = Draw.MolToImage(mol, size=(300, 300))
         file_path = os.path.join(path, f"molecule_{idx}.png")
         img.save(file_path)
-        
 
 ############################################################
 

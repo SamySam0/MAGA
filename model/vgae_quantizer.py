@@ -30,36 +30,35 @@ class VectorQuantizer(nn.Module):
         f_rest = f_no_grad.clone()
         f_hat  = torch.zeros_like(f_rest)
 
-        with torch.cuda.amp.autocast(enabled=False):
-            mean_q_latent_loss: torch.Tensor = 0.0
-            mean_commitment_loss: torch.Tensor = 0.0
-            SN = len(self.scales)
-            for si, pn in enumerate(self.scales):
-                rest_NC = F.interpolate(f_rest, size=(pn), mode='area').permute(0, 2, 1).reshape(-1, C)
+        mean_q_latent_loss: torch.Tensor = 0.0
+        mean_commitment_loss: torch.Tensor = 0.0
+        SN = len(self.scales)
+        for si, pn in enumerate(self.scales):
+            rest_NC = F.interpolate(f_rest, size=(pn), mode='area').permute(0, 2, 1).reshape(-1, C)
 
-                if self.collect_phase:
-                    self.collected_samples = torch.cat((self.collected_samples, rest_NC), dim=0)
-                
-                d_no_grad = torch.sum(rest_NC.square(), dim=1, keepdim=True) + torch.sum(self.embedding.weight.data.square(), dim=1, keepdim=False)
-                d_no_grad.addmm_(rest_NC, self.embedding.weight.data.T, alpha=-2, beta=1)
-                idx_N = torch.argmin(d_no_grad, dim=1)
-
-                idx_Bn = idx_N.view(B, pn)
-                h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
-
-                f_hat = f_hat + h_BCn
-                f_rest -= h_BCn
-
-                mean_commitment_loss += F.mse_loss(f_hat.data, f_BCN).mul_(0.25)
-                mean_q_latent_loss += F.mse_loss(f_hat, f_no_grad)
+            if self.collect_phase:
+                self.collected_samples = torch.cat((self.collected_samples, rest_NC), dim=0)
             
-            mean_commitment_loss *= 1. / SN
-            mean_q_latent_loss *= 1. / SN
+            d_no_grad = torch.sum(rest_NC.square(), dim=1, keepdim=True) + torch.sum(self.embedding.weight.data.square(), dim=1, keepdim=False)
+            d_no_grad.addmm_(rest_NC, self.embedding.weight.data.T, alpha=-2, beta=1)
+            idx_N = torch.argmin(d_no_grad, dim=1)
 
-            f_hat = (f_hat.data - f_no_grad).add_(f_BCN)
-            f_hat = f_hat.permute(0, 2, 1) # B, N, C
-            
-            return f_hat, mean_commitment_loss, mean_q_latent_loss
+            idx_Bn = idx_N.view(B, pn)
+            h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
+
+            f_hat = f_hat + h_BCn
+            f_rest -= h_BCn
+
+            mean_commitment_loss += F.mse_loss(f_hat.data, f_BCN).mul_(0.25)
+            mean_q_latent_loss += F.mse_loss(f_hat, f_no_grad)
+        
+        mean_commitment_loss *= 1. / SN
+        mean_q_latent_loss *= 1. / SN
+
+        f_hat = (f_hat.data - f_no_grad).add_(f_BCN)
+        f_hat = f_hat.permute(0, 2, 1) # B, N, C
+        
+        return f_hat, mean_commitment_loss, mean_q_latent_loss
 
     def collect_samples(self, zq):
         # Collect samples

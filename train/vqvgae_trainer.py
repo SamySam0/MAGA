@@ -1,7 +1,10 @@
 import torch
 import numpy as np
-from utils.losses import get_losses
-from utils.func import get_edge_masks
+from tqdm import tqdm
+
+from model.vgae_helpers import prepare_for_exp
+from utils.losses import get_losses, get_edge_masks
+from eval.evaluation import qm9_eval
 
 
 class VQVGAE_Trainer(object):
@@ -13,7 +16,7 @@ class VQVGAE_Trainer(object):
         self.train_loader, self.valid_loader = dataloaders
         self.gamma = gamma # config.train.gamma
 
-    def step(self, batch, train: bool, init_phase: bool = False):
+    def step(self, batch, train: bool, init_phase: bool = False, experimenting: bool = False):
         if train:
             self.optimizer.zero_grad()
 
@@ -28,11 +31,8 @@ class VQVGAE_Trainer(object):
             batch=batch, 
             nodes_rec=nodes_recon, 
             edges_rec=edges_recon, 
-            node_masks=node_masks.unsqueeze(-1), 
-            annotated_nodes=True, 
-            annotated_edges=True, 
-            max_node_num=32, 
             n_node_feat=self.model.decoder.out_node_feature_dim,
+            node_masks=masks[0].unsqueeze(-1), 
             edge_masks=masks[1],
         )
 
@@ -45,12 +45,14 @@ class VQVGAE_Trainer(object):
             loss.backward()
             self.optimizer.step()
         
+        if experimenting:
+            return nodes_recon, edges_recon, masks[0], masks[1]
         return recon_loss.item()
     
     def train_ep(self):
         self.model.train()
         batch_recon_loss = []
-        for batch in self.train_loader:
+        for batch in tqdm(self.train_loader, total=len(self.train_loader), desc='Training', leave=False):
             recon_loss = self.step(batch.to(self.device), train=True)
             batch_recon_loss.append(recon_loss)
         return np.mean(batch_recon_loss)
@@ -58,7 +60,7 @@ class VQVGAE_Trainer(object):
     def valid_ep(self):
         self.model.eval()
         batch_recon_loss = []
-        for batch in self.valid_loader:
+        for batch in tqdm(self.valid_loader, total=len(self.valid_loader), desc='Evaluation (valid)', leave=False):
             with torch.no_grad():
                 recon_loss = self.step(batch.to(self.device), train=False)
             batch_recon_loss.append(recon_loss)
@@ -66,6 +68,25 @@ class VQVGAE_Trainer(object):
         val_recon_loss = np.mean(batch_recon_loss)
         self.scheduler.step(val_recon_loss)
         return val_recon_loss
+    
+    def qm9_exp(self):
+        self.model.eval()
+        all_annots, all_adjs = [], []
+        
+        for batch in tqdm(self.valid_loader, total=len(self.valid_loader), desc='Experiment: Molecule Validity', leave=False):
+            with torch.no_grad():
+                annots_recon, adjs_recon, node_masks, edge_masks = self.step(batch.to(self.device), train=False, experimenting=True)
+                annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks)
+                all_annots.append(annots_recon)
+                all_adjs.append(adjs_recon)
+        
+        all_annots = torch.cat(all_annots, dim=0)
+        all_adjs = torch.cat(all_adjs, dim=0)
+        
+        valid, unique, novel, valid_w_corr = qm9_eval(all_annots, all_adjs)
+        n_samples = sum(len(batch.batch.bincount()) for batch in self.valid_loader)
+        
+        return valid/n_samples, unique, novel, valid_w_corr/n_samples
     
     def init_codebook_training(self):
         while self.model.quantizer.init_steps > 0 or self.model.quantizer.collect_phase:

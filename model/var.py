@@ -82,7 +82,7 @@ class VAR(nn.Module):
         B = x_BLCv_wo_first_l.shape[0]
             
         # SOS token
-        label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, 0, label_B) # B, 1
+        label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, self.num_classes, label_B) # B, 1
         
         sos = cond_BD = self.class_embed(label_B) # B, C
         sos = sos.unsqueeze(1).expand(B, self.first_l, -1) + self.pos_start.expand(B, self.first_l, -1) # B, 1, C => SOS embedding (not token anymore)
@@ -103,7 +103,7 @@ class VAR(nn.Module):
         return x_BLC
 
     def autoregressive_infer_cfg(self, B, label_B, cfg, top_k, top_p):
-        sos = cond_BD = self.class_embed(torch.cat((label_B, torch.full_like(label_B, fill_value=0)), dim=0))
+        sos = cond_BD = self.class_embed(torch.cat((label_B, torch.full_like(label_B, fill_value=self.num_classes)), dim=0))
 
         lvl_pos = self.lvl_embed(self.lvl_1L) + self.pos_1LC
         next_token_map = sos.unsqueeze(1).expand(2*B, self.first_l, -1) + self.pos_start.expand(2*B, self.first_l, -1) + lvl_pos[:, :self.first_l]
@@ -140,3 +140,51 @@ class VAR(nn.Module):
             block.attn.kv_caching(False)
         
         return self.vae_proxy[0].fhat_to_graph(f_hat, original_sizes=label_B)
+
+    def init_weights(self, init_adaln=0.5, init_adaln_gamma=1e-5, init_head=0.02, init_std=0.02, conv_std_or_gain=0.02):
+        if init_std < 0: 
+            init_std = (1 / self.C / 3) ** 0.5     # init_std < 0: automated
+        
+        # print(f'[init_weights] {type(self).__name__} with {init_std=:g}')
+        for m in self.modules():
+            with_weight = hasattr(m, 'weight') and m.weight is not None
+            with_bias = hasattr(m, 'bias') and m.bias is not None
+            if isinstance(m, nn.Linear):
+                nn.init.trunc_normal_(m.weight.data, std=init_std)
+                if with_bias: m.bias.data.zero_()
+            elif isinstance(m, nn.Embedding):
+                nn.init.trunc_normal_(m.weight.data, std=init_std)
+                if m.padding_idx is not None: m.weight.data[m.padding_idx].zero_()
+            elif isinstance(m, (nn.LayerNorm, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm, nn.GroupNorm, nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d)):
+                if with_weight: m.weight.data.fill_(1.)
+                if with_bias: m.bias.data.zero_()
+        
+        if init_head >= 0:
+            if isinstance(self.head, nn.Linear):
+                self.head.weight.data.mul_(init_head)
+                self.head.bias.data.zero_()
+            elif isinstance(self.head, nn.Sequential):
+                self.head[-1].weight.data.mul_(init_head)
+                self.head[-1].bias.data.zero_()
+        
+        if isinstance(self.head_nm, AdaLNBeforeHead):
+            self.head_nm.ada_lin[-1].weight.data.mul_(init_adaln)
+            if hasattr(self.head_nm.ada_lin[-1], 'bias') and self.head_nm.ada_lin[-1].bias is not None:
+                self.head_nm.ada_lin[-1].bias.data.zero_()
+        
+        depth = len(self.blocks)
+        for block_idx, sab in enumerate(self.blocks):
+            sab: AdaLNSelfAttn
+            sab.attn.proj.weight.data.div_(math.sqrt(2 * depth))
+            sab.ffn.fc2.weight.data.div_(math.sqrt(2 * depth))
+            if hasattr(sab.ffn, 'fcg') and sab.ffn.fcg is not None:
+                nn.init.ones_(sab.ffn.fcg.bias)
+                nn.init.trunc_normal_(sab.ffn.fcg.weight, std=1e-5)
+            if hasattr(sab, 'ada_lin'):
+                sab.ada_lin[-1].weight.data[2*self.C:].mul_(init_adaln)
+                sab.ada_lin[-1].weight.data[:2*self.C].mul_(init_adaln_gamma)
+                if hasattr(sab.ada_lin[-1], 'bias') and sab.ada_lin[-1].bias is not None:
+                    sab.ada_lin[-1].bias.data.zero_()
+            elif hasattr(sab, 'ada_gss'):
+                sab.ada_gss.data[:, :, 2:].mul_(init_adaln)
+                sab.ada_gss.data[:, :, :2].mul_(init_adaln_gamma)

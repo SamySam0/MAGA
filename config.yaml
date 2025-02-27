@@ -15,15 +15,10 @@ vqvgae:
     collect_desired_size: 100_000
     scales:
       - 1
-      - 2
-      - 3 
-      - 4 
-      - 6 
-      - 9 
+      - 3
+      - 5 
       - 13 
-      - 18 
-      - 24 
-      - 32
+      - 30
   train:
     epochs: 10
     batch_size: 32
@@ -40,10 +35,10 @@ var:
   emb_dim: 128
   num_classes: 30
   train:
-    epochs: 25
-    batch_size: 32
-    lr: 0.005
-    lr_decay: 0.7
+    epochs: 12
+    batch_size: 1024
+    lr: 0.0005
+    lr_decay: 0.5
     beta1: 0.9
     beta2: 0.99
     sch_patience: 4
@@ -53,6 +48,17 @@ var:
 
 data:
   path: 'data/qm9'
+  train_val_test_split: [0.8, 0.2, 0.0]
+  dataset_size: null
+  node_feature_dim: 11          # Original node features
+  additional_node_features: 5   # +5 for Spectral Features
+  edge_feature_dim: 4
+  n_exp_samples: 1024
+  exp_batch_size: 1024
+  qm9_node_feature_dim: 5
+
+zinc:
+  path: 'data/zinc'
   train_val_test_split: [0.8, 0.2, 0.0]
   dataset_size: null
   node_feature_dim: 11          # Original node features
