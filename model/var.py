@@ -82,7 +82,7 @@ class VAR(nn.Module):
         B = x_BLCv_wo_first_l.shape[0]
             
         # SOS token
-        label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, 0, label_B) # B, 1
+        label_B = torch.where(torch.rand(B, device=label_B.device) < self.cond_drop_rate, self.num_classes, label_B) # B, 1
         
         sos = cond_BD = self.class_embed(label_B) # B, C
         sos = sos.unsqueeze(1).expand(B, self.first_l, -1) + self.pos_start.expand(B, self.first_l, -1) # B, 1, C => SOS embedding (not token anymore)
@@ -103,7 +103,7 @@ class VAR(nn.Module):
         return x_BLC
 
     def autoregressive_infer_cfg(self, B, label_B, cfg, top_k, top_p):
-        sos = cond_BD = self.class_embed(torch.cat((label_B, torch.full_like(label_B, fill_value=0)), dim=0))
+        sos = cond_BD = self.class_embed(torch.cat((label_B, torch.full_like(label_B, fill_value=self.num_classes)), dim=0))
 
         lvl_pos = self.lvl_embed(self.lvl_1L) + self.pos_1LC
         next_token_map = sos.unsqueeze(1).expand(2*B, self.first_l, -1) + self.pos_start.expand(2*B, self.first_l, -1) + lvl_pos[:, :self.first_l]
