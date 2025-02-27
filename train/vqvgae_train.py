@@ -4,7 +4,7 @@ from train.vqvgae_trainer import VQVGAE_Trainer
 
 def train(
     model, optimizer, scheduler, train_loader, valid_loader, 
-    device, train_gamma, n_epochs, log_loss_per_n_epoch,
+    device, train_gamma, n_epochs, log_loss_per_n_epoch, n_exp_samples,
     checkpoint_path, checkpoint_name,
 ):
     # Setup trainer
@@ -35,7 +35,7 @@ def train(
         train_recon_loss = round(trainer.train_ep(), 5)
         training_times.append(time.time() - start_time)
         valid_recon_loss = round(trainer.valid_ep(), 5)
-        valid, unique, novel, valid_w_corr = trainer.qm9_exp()
+        valid, unique, novel, valid_w_corr = trainer.qm9_exp(n_samples=n_exp_samples)
         valid, unique, novel, valid_w_corr = round(valid, 5), round(unique, 5), round(novel, 5), round(valid_w_corr, 5)
         if epoch % log_loss_per_n_epoch == 0 or epoch == n_epochs:
             print(f"Epoch: {epoch} | Train Recon Loss: {train_recon_loss}, Valid Recon Loss: {valid_recon_loss}, LR: {lrs[-1]}", end=' | ')

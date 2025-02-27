@@ -50,7 +50,7 @@ def main(config_path='config.yaml'):
         model=model, optimizer=optimizer, scheduler=scheduler,
         train_loader=train_loader, valid_loader=val_loader,
         device=device, train_gamma=config.vqvgae.train.gamma, 
-        n_epochs=config.vqvgae.train.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
+        n_epochs=config.vqvgae.train.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch, n_exp_samples=config.data.n_exp_samples,
         checkpoint_path=config.log.checkpoint_dir, checkpoint_name=checkpoint_name,
     )
 

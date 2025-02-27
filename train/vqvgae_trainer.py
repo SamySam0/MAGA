@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
+from torch_geometric.loader import DataLoader
 from model.vgae_helpers import prepare_for_exp
 from utils.losses import get_losses, get_edge_masks
 from eval.evaluation import qm9_eval
@@ -69,22 +70,15 @@ class VQVGAE_Trainer(object):
         self.scheduler.step(val_recon_loss)
         return val_recon_loss
     
-    def qm9_exp(self):
+    def qm9_exp(self, n_samples):
         self.model.eval()
-        all_annots, all_adjs = [], []
-        
-        for batch in tqdm(self.valid_loader, total=len(self.valid_loader), desc='Experiment: Molecule Validity', leave=False):
-            with torch.no_grad():
-                annots_recon, adjs_recon, node_masks, edge_masks = self.step(batch.to(self.device), train=False, experimenting=True)
-                annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks)
-                all_annots.append(annots_recon)
-                all_adjs.append(adjs_recon)
-        
-        all_annots = torch.cat(all_annots, dim=0)
-        all_adjs = torch.cat(all_adjs, dim=0)
-        
-        valid, unique, novel, valid_w_corr = qm9_eval(all_annots, all_adjs)
-        n_samples = sum(len(batch.batch.bincount()) for batch in self.valid_loader)
+        exp_loader = DataLoader(self.train_loader.dataset, batch_size=n_samples)
+        batch = next(iter(exp_loader))
+
+        with torch.no_grad():
+            annots_recon, adjs_recon, node_masks, edge_masks = self.step(batch.to(self.device), train=False, experimenting=True)
+            annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks)
+            valid, unique, novel, valid_w_corr = qm9_eval(annots_recon, adjs_recon)
         
         return valid/n_samples, unique, novel, valid_w_corr/n_samples
     
