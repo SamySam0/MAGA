@@ -12,7 +12,7 @@ import pickle
 import torch
 from torch_geometric.utils import to_dense_batch
 from torchmetrics import MeanMetric
-from moses.metrics.metrics import get_all_metrics
+# from moses.metrics.metrics import get_all_metrics
 import random
 import os
 
@@ -223,28 +223,28 @@ def qm9_eval(node_recon, edge_recon, dataset='QM9'):
     valid, unique, novel, valid_w_corr = metrics.values()
     return valid, unique, novel, valid_w_corr
 
-def qm9_eval_v2(node_recon, edge_recon, dataset='QM9'):
-    # from SwinGNN sampler_node_adj.py
-    train_smiles, test_smiles = load_smiles(dataset=dataset)
-    train_smiles, test_smiles = canonicalize_smiles(train_smiles), canonicalize_smiles(test_smiles)
+# def qm9_eval_v2(node_recon, edge_recon, dataset='QM9'):
+#     # from SwinGNN sampler_node_adj.py
+#     train_smiles, test_smiles = load_smiles(dataset=dataset)
+#     train_smiles, test_smiles = canonicalize_smiles(train_smiles), canonicalize_smiles(test_smiles)
     
-    # obtaining validity with correction, uniqueness, novelty and FCD
-    gen_mols, num_no_correct = gen_mol(node_recon, edge_recon, dataset)
-    gen_smiles = mols_to_smiles(gen_mols)
-    scores = get_all_metrics(gen=gen_smiles, k=len(gen_smiles), device='cpu', test=test_smiles, train=train_smiles)
+#     # obtaining validity with correction, uniqueness, novelty and FCD
+#     gen_mols, num_no_correct = gen_mol(node_recon, edge_recon, dataset)
+#     gen_smiles = mols_to_smiles(gen_mols)
+#     scores = get_all_metrics(gen=gen_smiles, k=len(gen_smiles), device='cpu', test=test_smiles, train=train_smiles)
 
-    # obtaining NSPDK
-    test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))    
-    scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols), methods=['nspdk'])['nspdk']
+#     # obtaining NSPDK
+#     test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))    
+#     scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols), methods=['nspdk'])['nspdk']
 
-    # List of metrics
-    validity = num_no_correct/len(gen_mols)
-    uniqueness = scores[f'unique@{len(gen_smiles)}']
-    fcd_test = scores['FCD/Test']
-    novelty = scores['Novelty']
-    nspdk = scores_nspdk
+#     # List of metrics
+#     validity = num_no_correct/len(gen_mols)
+#     uniqueness = scores[f'unique@{len(gen_smiles)}']
+#     fcd_test = scores['FCD/Test']
+#     novelty = scores['Novelty']
+#     nspdk = scores_nspdk
 
-    return validity, uniqueness, novelty, fcd_test, nspdk
+#     return validity, uniqueness, novelty, fcd_test, nspdk
 
 def visualise_molecule(node_recon, edge_recon, path="output_images", dataset="QM9"):
     gen_mols, _ = gen_mol(node_recon, edge_recon, dataset)

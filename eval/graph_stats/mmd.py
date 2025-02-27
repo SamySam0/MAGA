@@ -2,7 +2,7 @@ import concurrent.futures
 from functools import partial
 
 import numpy as np
-import pyemd
+# import pyemd
 from scipy.linalg import toeplitz
 
 from sklearn.metrics.pairwise import pairwise_kernels
