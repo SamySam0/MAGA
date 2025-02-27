@@ -15,7 +15,7 @@ def train(
     )
 
     # Training phase
-    training_times = []
+    training_times, gen_times = [], []
     train_errors, lrs = [], []
     valid_s, unique_s, novel_s, valid_w_corr_s = [], [], [], []
     valid_errors = {'L_mean': [], 'L_tail': [], 'acc_mean': [], 'acc_tail': []}
@@ -26,7 +26,7 @@ def train(
         start_time = time.time()
         train_loss = round(trainer.train_ep(), 5)
         training_times.append(time.time() - start_time)
-        val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc = trainer.eval_ep()
+        val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc, gen_time = trainer.eval_ep()
         val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc = round(val_mean_loss, 5), round(val_tail_loss, 5), round(val_mean_acc, 5), round(val_tail_acc, 5)
 
         valid, unique, novel, valid_w_corr = trainer.qm9_exp(n_samples=n_exp_samples, batch_size=exp_batch_size)
@@ -53,7 +53,7 @@ def train(
                 'cur_learning_rate': lrs[-1],
             }, f"{checkpoint_path}/{checkpoint_name}_best.pt")
         
-        print(f"\nExperiment => Valid: {valid}, Unique: {unique}, Novel: {novel}, Valid_w_corr: {valid_w_corr}")
+        print(f"\nExperiment => Valid: {valid}, Unique: {unique}, Novel: {novel}, Valid_w_corr: {valid_w_corr}, Gen time: {gen_time}s")
 
         train_errors.append(train_loss)
         valid_errors['L_mean'].append(val_mean_loss)
@@ -64,11 +64,13 @@ def train(
         unique_s.append(unique)
         novel_s.append(novel)
         valid_w_corr_s.append(valid_w_corr)
+        gen_times.append(gen_time)
 
     total_training_time = round(sum(training_times), 1)
     print(f"\nBEST EPOCH: {best_epoch} ==> Train Loss: {train_errors[best_epoch-1]}, Valid Mean Loss: {valid_errors['L_mean'][best_epoch-1]}, Valid Tail Loss: {valid_errors['L_tail'][best_epoch-1]}, Valid Mean Acc: {valid_errors['acc_mean'][best_epoch-1]}, Valid Tail Acc: {valid_errors['acc_tail'][best_epoch-1]}, LR: {lrs[best_epoch-1]}")
     print(f"Validity: {valid_s[best_epoch-1]}, Unique: {unique_s[best_epoch-1]}, Novel: {novel_s[best_epoch-1]}, Valid w/ corr: {valid_w_corr_s[best_epoch-1]}")
     print(f"\nTraining time: {total_training_time} seconds")
+    print(f"Generation time for {n_exp_samples} molecules on best epoch: {gen_times[best_epoch-1]} seconds")
 
     # Training logs
     with open(f'{checkpoint_path}/{checkpoint_name}_logs.txt', 'a') as f:
@@ -91,3 +93,4 @@ def train(
         f.write('\n\n===== Time logs =====')
         f.write(f"\nDevice: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
         f.write(f"\nTraining time: {total_training_time} seconds")
+        f.write(f"\nGeneration time for {n_exp_samples} molecules on best epoch: {gen_times[best_epoch-1]} seconds")
