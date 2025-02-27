@@ -1,5 +1,5 @@
 from eval.chem_func import mols_to_smiles
-from eval.mol_utils import mols_to_nx, load_smiles, gen_mol
+from eval.mol_utils import mols_to_nx, load_smiles, gen_mol, canonicalize_smiles, smiles_to_mols
 from eval.sample import sample
 from eval.func import get_edge_target
 
@@ -11,6 +11,7 @@ import pickle
 import torch
 from torch_geometric.utils import to_dense_batch
 from torchmetrics import MeanMetric
+from moses.metrics.metrics import get_all_metrics
 import random
 
 # def init_autoencoder_running_metrics(annotated_nodes):
@@ -220,13 +221,36 @@ def qm9_eval(node_recon, edge_recon, dataset='QM9'):
     valid, unique, novel, valid_w_corr = metrics.values()
     return valid, unique, novel, valid_w_corr
 
-def generate_molecule(node_recon, edge_recon, path="output_images", dataset="QM9"):
+def qm9_eval_v2(node_recon, edge_recon, dataset='QM9'):
+    # from SwinGNN sampler_node_adj.py
+    train_smiles, test_smiles = load_smiles(dataset=dataset)
+    train_smiles, test_smiles = canonicalize_smiles(train_smiles), canonicalize_smiles(test_smiles)
+    
+    # obtaining validity with correction, uniqueness, novelty and FCD
+    gen_mols, num_no_correct = gen_mol(node_recon, edge_recon, dataset)
+    gen_smiles = mols_to_smiles(gen_mols)
+    scores = get_all_metrics(gen=gen_smiles, k=len(gen_smiles), device='cpu', test=test_smiles, train=train_smiles)
+
+    # obtaining NSPDK
+    test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))    
+    scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols), methods=['nspdk'])['nspdk']
+
+    # List of metrics
+    validity = num_no_correct/len(gen_mols)
+    uniqueness = scores[f'unique@{len(gen_smiles)}']
+    fcd_test = scores['FCD/Test']
+    novelty = scores['Novelty']
+    nspdk = scores_nspdk
+
+    return validity, uniqueness, novelty, fcd_test, nspdk
+
+def visualise_molecule(node_recon, edge_recon, path="output_images", dataset="QM9"):
     gen_mols, _ = gen_mol(node_recon, edge_recon, dataset)
     for idx, mol in enumerate(gen_mols):
         img = Draw.MolToImage(mol, size=(300, 300))
         file_path = os.path.join(path, f"molecule_{idx}.png")
         img.save(file_path)
-
+        
 
 ############################################################
 
