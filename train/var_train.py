@@ -26,10 +26,10 @@ def train(
         start_time = time.time()
         train_loss = round(trainer.train_ep(), 5)
         training_times.append(time.time() - start_time)
-        val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc, gen_time = trainer.eval_ep()
+        val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc = trainer.eval_ep()
         val_mean_loss, val_tail_loss, val_mean_acc, val_tail_acc = round(val_mean_loss, 5), round(val_tail_loss, 5), round(val_mean_acc, 5), round(val_tail_acc, 5)
 
-        valid, unique, novel, valid_w_corr = trainer.qm9_exp(n_samples=n_exp_samples, batch_size=exp_batch_size)
+        valid, unique, novel, valid_w_corr, gen_time = trainer.qm9_exp(n_samples=n_exp_samples, batch_size=exp_batch_size)
         valid, unique, novel, valid_w_corr = round(valid, 5), round(unique, 5), round(novel, 5), round(valid_w_corr, 5)
 
         if epoch % log_loss_per_n_epoch == 0 or epoch == n_epochs:
@@ -53,7 +53,7 @@ def train(
                 'cur_learning_rate': lrs[-1],
             }, f"{checkpoint_path}/{checkpoint_name}_best.pt")
         
-        print(f"\nExperiment => Valid: {valid}, Unique: {unique}, Novel: {novel}, Valid_w_corr: {valid_w_corr}, Gen time: {gen_time}s")
+        print(f"\nExperiment => Valid: {valid}, Unique: {unique}, Novel: {novel}, Valid_w_corr: {valid_w_corr}, Gen time: {round(gen_time, 1)} seconds")
 
         train_errors.append(train_loss)
         valid_errors['L_mean'].append(val_mean_loss)

@@ -101,7 +101,7 @@ class VAR_Trainer(object):
         assert n_samples % batch_size == 0, f'n_samples ({n_samples}) must be divisible by the batch_size ({batch_size})!'
         all_annots, all_adjs = [], []
         
-        gen_time = time.time()
+        start_time = time.time()
         with torch.no_grad():
             for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
                 label = self.pd_graph_size.sample(batch_size).to(self.device)
@@ -114,12 +114,12 @@ class VAR_Trainer(object):
                 all_annots.append(annots_recon)
                 all_adjs.append(adjs_recon)
         
-        total_gen_time = time.time() - start_time
+        gen_time = time.time() - start_time
         all_annots = torch.cat(all_annots, dim=0)
         all_adjs = torch.cat(all_adjs, dim=0)
         
         valid, unique, novel, valid_w_corr = qm9_eval(all_annots, all_adjs)
-        return valid/n_samples, unique, novel, valid_w_corr/n_samples, total_gen_time
+        return valid/n_samples, unique, novel, valid_w_corr/n_samples, gen_time
 
 
 class CategoricalGraphSize:
