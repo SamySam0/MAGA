@@ -113,4 +113,4 @@ class VQVAE(nn.Module):
 
         # Decoder
         nodes_recon, edges_recon = self.decoder(interpolated_nodes, mask=node_masks)
-        return nodes_recon, edges_recon
+        return nodes_recon, edges_recon, node_masks

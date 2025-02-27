@@ -6,6 +6,8 @@ from tqdm import tqdm
 from collections import Counter
 from typing import List
 
+from model.vgae_helpers import prepare_for_exp
+from utils.losses import get_edge_masks
 from eval.evaluation import qm9_eval
 
 
@@ -102,10 +104,10 @@ class VAR_Trainer(object):
             for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
                 label = self.pd_graph_size.sample(batch_size).to(self.device)
                 
-                nodes_recon, edges_recon = self.var.autoregressive_infer_cfg(B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0)
-                oh_nodes_recon = F.one_hot(nodes_recon[:, :, :5].argmax(dim=-1), num_classes=5)
-                oh_edges_recon = F.one_hot(edges_recon.argmax(dim=-1), num_classes=4)
-                valid, unique, novel, valid_w_corr = qm9_eval(oh_nodes_recon, oh_edges_recon.permute(0, 3, 1, 2))
+                nodes_recon, edges_recon, node_masks = self.var.autoregressive_infer_cfg(B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0)
+                edge_masks = get_edge_masks(node_masks) 
+                annots_recon, adjs_recon = prepare_for_exp(nodes_recon, edges_recon, node_masks, edge_masks)
+                valid, unique, novel, valid_w_corr = qm9_eval(annots_recon, adjs_recon)
 
                 valid_s.append(valid)
                 unique_s.append(unique)
