@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from torch_geometric.utils import dense_to_sparse, to_dense_adj, to_dense_batch
-from utils.func import discretize, get_edge_target
 
 
 def get_losses(batch, nodes_rec, edges_rec, n_node_feat, node_masks, edge_masks):
@@ -65,3 +64,14 @@ def get_edge_target(batch):
         no_edge = 1 - dense_edge_attr.sum(-1, keepdim=True)
         dense_edge_attr = torch.cat((no_edge, dense_edge_attr), dim=-1)
         return dense_edge_attr.argmax(-1)
+
+def get_edge_masks(node_masks):
+    device = node_masks.device
+    n = node_masks.shape[1]
+    batch_size = node_masks.shape[0]
+    mask_reversed = (1 - node_masks.float())
+    mask_reversed = mask_reversed.reshape(batch_size, -1, 1) + mask_reversed.reshape(batch_size, 1, -1)
+    mask_reversed = mask_reversed + torch.eye(n).to(device)
+    mask_reversed = (mask_reversed>0).float()
+    masks = 1-mask_reversed
+    return masks.unsqueeze(-1)

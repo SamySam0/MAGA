@@ -1,8 +1,10 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-from utils.losses import get_losses
-from utils.func import get_edge_masks
+
+from model.vgae_helpers import prepare_for_exp
+from utils.losses import get_losses, get_edge_masks
+from eval.evaluation import qm9_eval
 
 
 class VQVGAE_Trainer(object):
@@ -14,7 +16,7 @@ class VQVGAE_Trainer(object):
         self.train_loader, self.valid_loader = dataloaders
         self.gamma = gamma # config.train.gamma
 
-    def step(self, batch, train: bool, init_phase: bool = False):
+    def step(self, batch, train: bool, init_phase: bool = False, experimenting: bool = False):
         if train:
             self.optimizer.zero_grad()
 
@@ -43,6 +45,8 @@ class VQVGAE_Trainer(object):
             loss.backward()
             self.optimizer.step()
         
+        if experimenting:
+            return nodes_recon, edges_recon, masks[0], masks[1]
         return recon_loss.item()
     
     def train_ep(self):
@@ -64,6 +68,23 @@ class VQVGAE_Trainer(object):
         val_recon_loss = np.mean(batch_recon_loss)
         self.scheduler.step(val_recon_loss)
         return val_recon_loss
+    
+    def qm9_exp(self):
+        self.model.eval()
+        valid_s, unique_s, novel_s, fcd_s, valid_w_corr_s = [], [], [], [], [] 
+        for batch in tqdm(self.valid_loader, total=len(self.valid_loader), desc='Experiment: Molecule Validity', leave=False):
+            with torch.no_grad():
+                annots_recon, adjs_recon, node_masks, edge_masks = self.step(batch.to(self.device), train=False, experimenting=True)
+                annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks)
+                valid, unique, novel, valid_w_corr = qm9_eval(annots_recon, adjs_recon)
+
+                valid_s.append(valid)
+                unique_s.append(unique)
+                novel_s.append(novel)
+                valid_w_corr_s.append(valid_w_corr)
+        
+        n_samples = sum(len(batch.batch.bincount()) for batch in self.valid_loader)
+        return sum(valid_s)/n_samples, np.mean(unique_s), np.mean(novel_s), sum(valid_w_corr_s)/n_samples
     
     def init_codebook_training(self):
         while self.model.quantizer.init_steps > 0 or self.model.quantizer.collect_phase:

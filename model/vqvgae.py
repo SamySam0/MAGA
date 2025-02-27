@@ -1,10 +1,10 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
-from typing import List, Tuple
+from typing import List
 
 from model.vgae_basics import Encoder, Decoder
 from model.vgae_quantizer import VectorQuantizer as Quantizer
+from model.vgae_helpers import interpolate_batch, sizes_to_mask
 from torch_geometric.utils import to_dense_batch
 
 
@@ -114,34 +114,3 @@ class VQVAE(nn.Module):
         # Decoder
         nodes_recon, edges_recon = self.decoder(interpolated_nodes, mask=node_masks)
         return nodes_recon, edges_recon
-
-
-def interpolate_batch(graphs: Tuple[torch.Tensor], to_sizes: List[int], padding_size: int = None):
-    '''
-    Interpolate all graphs to desired sizes.
-    If sizes are different, add padding.
-    '''
-    # Interpolate all graphs to desired sizes
-    interpolated_nodes = []
-    for graph, size in zip(graphs, to_sizes):
-        if len(graph.shape) < 3: graph = graph.unsqueeze(0)
-        graph = graph.transpose(1, 2)
-        graph = F.interpolate(graph, size=(size if isinstance(size, int) else size.item()), mode='linear')
-
-        # Add padding if necessary
-        if padding_size is not None:
-            padded = torch.zeros(1, graph.size(1), padding_size, device=graph.device)
-            padded[:, :, :size] = graph
-            graph = padded
-
-        interpolated_nodes.append(graph.transpose(1, 2).squeeze(0))
-    
-    return torch.stack(interpolated_nodes)
-
-def sizes_to_mask(original_sizes, max_size, device):
-    ''' Convert list of graph sizes to a binary mask. '''
-    B = len(original_sizes)
-    mask = torch.zeros(B, max_size, device=device)
-    for i, size in enumerate(original_sizes):
-        mask[i, :size] = 1
-    return mask.bool()
