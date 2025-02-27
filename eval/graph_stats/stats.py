@@ -9,7 +9,7 @@ import networkx as nx
 import numpy as np
 import copy
 
-from .mmd import process_tensor, compute_mmd, gaussian, gaussian_emd #, compute_nspdk_mmd
+from .mmd import process_tensor, compute_mmd, gaussian, gaussian_emd, compute_nspdk_mmd
 PRINT_TIME = True
 ORCA_DIR = './graph_stats/orca'  # the relative path to the orca dir
 
@@ -313,13 +313,14 @@ def is_lobster_graph(G):
     else:
         return False
 
-def nspdk_stats(graph_ref_list, graph_pred_list):
+def nspdk_stats(graph_ref_list, graph_pred_list, is_parallel=False):
     graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
+
     prev = datetime.now()
-    mmd_dist = compute_nspdk_mmd(graph_ref_list, graph_pred_list_remove_empty, metric='nspdk', is_hist=False, n_jobs=-1)
+    mmd_dist = compute_nspdk_mmd(graph_ref_list, graph_pred_list_remove_empty, n_jobs=None)
     elapsed = datetime.now() - prev
     if PRINT_TIME:
-        print('Time computing degree mmd: ', elapsed)
+        print('Time computing nspdk mmd: ', elapsed)
     return mmd_dist
 
 
@@ -340,22 +341,39 @@ def eval_torch_batch(ref_batch, pred_batch, methods=None):
 
 
 # -------- Evaluate generated generic graphs --------
-def eval_graph_list(graph_ref_list, graph_pred_list, methods=None, kernels=None):
+# def eval_graph_list(graph_ref_list, graph_pred_list, methods=None, kernels=None):
+#     if methods is None:
+#         methods = ['degree', 'cluster', 'orbit']
+#     results = {}
+#     kernels = {'degree': gaussian_emd,
+#                'cluster': gaussian_emd,
+#                'orbit': gaussian,
+#                'spectral': gaussian_emd}
+#     for method in methods:
+#         if method == 'nspdk':
+#             results[method] = METHOD_NAME_TO_FUNC[method](graph_ref_list, graph_pred_list)
+#         else:
+#             results[method] = round(METHOD_NAME_TO_FUNC[method](graph_ref_list, graph_pred_list), 6)
+#         print('\033[91m' + f'{method:9s}' + '\033[0m' + ' : ' + '\033[94m' +  f'{results[method]:.6f}' + '\033[0m')
+#     return results
+def eval_graph_list(graph_ref_list, grad_pred_list, methods=None):
+    """
+    Evaluate the graph statistics given networkx graphs of reference and generated graphs.
+    @param graph_ref_list: list of networkx graphs
+    @param grad_pred_list: list of networkx graphs
+    @param methods: list of methods to evaluate
+    @return: a dictionary of results
+    """
     if methods is None:
-        methods = ['degree', 'cluster', 'orbit']
+        methods = ['degree', 'cluster', 'orbit', 'spectral']
+    print("Size of reference graphs: {:d}, size of generated graphs: {:d}".format(
+        len(graph_ref_list), len(grad_pred_list)))
     results = {}
-    kernels = {'degree': gaussian_emd,
-               'cluster': gaussian_emd,
-               'orbit': gaussian,
-               'spectral': gaussian_emd}
     for method in methods:
-        if method == 'nspdk':
-            results[method] = METHOD_NAME_TO_FUNC[method](graph_ref_list, graph_pred_list)
-        else:
-            results[method] = round(METHOD_NAME_TO_FUNC[method](graph_ref_list, graph_pred_list), 6)
-        print('\033[91m' + f'{method:9s}' + '\033[0m' + ' : ' + '\033[94m' +  f'{results[method]:.6f}' + '\033[0m')
+        results[method] = METHOD_NAME_TO_FUNC[method](graph_ref_list, grad_pred_list)
+    results['average'] = np.mean(list(results.values()))
+    print(results)
     return results
-
 
 ##################
 
