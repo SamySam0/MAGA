@@ -107,7 +107,7 @@ class VAR_Trainer(object):
                 label = self.pd_graph_size.sample(batch_size).to(self.device)
                 
                 nodes_recon, edges_recon, node_masks = self.var.autoregressive_infer_cfg(
-                    B=batch_size, label_B=label, cfg=1.5, top_k=0.0, top_p=0.0
+                    B=batch_size, label_B=label, cfg=4, top_k=900, top_p=0.95
                 )
                 edge_masks = get_edge_masks(node_masks) 
                 annots_recon, adjs_recon = prepare_for_exp(nodes_recon, edges_recon, node_masks, edge_masks)
