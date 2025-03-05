@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from scipy.cluster.vq import kmeans2
+from typing import List
 
 
 class VectorQuantizer(nn.Module):
