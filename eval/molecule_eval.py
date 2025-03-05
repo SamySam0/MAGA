@@ -167,3 +167,141 @@ def mols_to_nx(mols):
         
         nx_graphs.append(G)
     return nx_graphs
+
+##### NSPDK #####
+
+def smiles_to_mols(smiles):
+    return [Chem.MolFromSmiles(s) for s in smiles]
+
+def nspdk_stats(graph_ref_list, graph_pred_list, is_parallel=False):
+    graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
+
+    prev = datetime.now()
+    mmd_dist = compute_nspdk_mmd(graph_ref_list, graph_pred_list_remove_empty, n_jobs=20)
+    elapsed = datetime.now() - prev
+    return mmd_dist
+
+def eval_graph_list(graph_ref_list, grad_pred_list):
+    """
+    Evaluate the graph statistics given networkx graphs of reference and generated graphs.
+    @param graph_ref_list: list of networkx graphs
+    @param grad_pred_list: list of networkx graphs
+    @param methods: list of methods to evaluate
+    @return: a dictionary of results
+    """
+    results = nspdk_stats(graph_ref_list, grad_pred_list, is_parallel=False)
+    return results
+
+def compute_nspdk_mmd(samples1, samples2, n_jobs=None):
+    """
+    Compute MMD between two sets of samples using NSPDK kernel.
+    Code adapted from https://github.com/idea-iitd/graphgen/blob/master/metrics/mmd.py
+    """
+    def _kernel_compute(x, y=None, n_jobs_=None):
+        x = vectorize(x, complexity=4, discrete=True)
+        if y is not None:
+            y = vectorize(y, complexity=4, discrete=True)
+        return pairwise_kernels(x, y, metric='linear', n_jobs=n_jobs_)
+
+    X = _kernel_compute(samples1, n_jobs_=n_jobs)
+    Y = _kernel_compute(samples2, n_jobs_=n_jobs)
+    Z = _kernel_compute(samples1, y=samples2, n_jobs_=n_jobs)
+
+    return np.average(X) + np.average(Y) - 2 * np.average(Z)
+
+def mask_nodes(nodes, node_flags, value=0.0, in_place=True, along_dim=None):
+    """
+    Masking out node embeddings according to node flags.
+    @param nodes:        [B, N] or [B, N, D] by default, [B, *, N, *] if along_dim is specified
+    @param node_flags:   [B, N] or [B, N, N]
+    @param value:        scalar
+    @param in_place:     flag of in place operation
+    @param along_dim:    along certain specified dimension
+    @return NODES:       [B, N] or [B, N, D]
+    """
+    if len(node_flags.shape) == 3:
+        # raise ValueError("node_flags should be [B, N] or [B, N, D]")
+        # if node_flags is [B, N, N], then we don't apply any mask
+        return nodes
+    elif len(node_flags.shape) == 2:
+        if along_dim is None:
+            # mask along the second dimension by default
+            if len(nodes.shape) == 2:
+                pass
+            elif len(nodes.shape) == 3:
+                node_flags = node_flags.unsqueeze(-1)  # [B, N, 1]
+            else:
+                raise NotImplementedError
+        else:
+            assert nodes.size(along_dim) == len(node_flags)
+            shape_ls = list(node_flags.shape)
+            assert len(shape_ls) == 2
+            for i, dim in enumerate(nodes.shape):
+                if i == 0:
+                    pass
+                else:
+                    if i < along_dim:
+                        shape_ls.insert(1, 1)  # insert 1 at the second dim
+                    elif i == along_dim:
+                        assert shape_ls[i] == dim  # check the length consistency
+                    elif i > along_dim:
+                        shape_ls.insert(len(shape_ls), 1)  # insert 1 at the end
+            node_flags = node_flags.view(*shape_ls)  # [B, *, N, *]
+
+        if in_place:
+            nodes.masked_fill_(torch.logical_not(node_flags), value)
+        else:
+            nodes = nodes.masked_fill(torch.logical_not(node_flags), value)
+    else:
+        raise NotImplementedError
+    return nodes
+
+
+##### Make final metric function ####
+
+# [B, no_of_nodes, N] for node_recon, [B, no_of_bonds, N, N] for adj_recon
+def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
+    """
+    Evaluate molecules from one-hot encoded node and adjacency tensors
+    Args:
+        node_one_hot: One-hot encoded node features tensor [B, N, num_node_type]
+        adj_one_hot: One-hot encoded adjacency tensor [B, num_adj_type, N, N]
+        dataset_name: Name of the dataset ('QM9' or 'ZINC250K')
+    """
+    train_smiles, test_smiles = load_smiles(dataset_name)
+    train_smiles = canonicalize_smiles(train_smiles)
+    test_smiles = canonicalize_smiles(test_smiles)
+    test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))
+
+    if dataset_name == 'QM9':
+        atomic_num_list = [6, 7, 8, 9, 0]
+    elif dataset_name == 'ZINC250K':
+        atomic_num_list = [6, 7, 8, 9, 15, 16, 17, 35, 53, 0]
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
+
+    # Add padding dimension for dummy atom if needed
+    if node_one_hot.shape[-1] != len(atomic_num_list):
+        padding = 1 - node_one_hot.sum(dim=-1, keepdim=True)  # Calculate padding for dummy atom
+        x_one_hot = torch.cat([node_one_hot, padding], dim=-1).numpy()
+    else:
+        x_one_hot = node_one_hot.numpy()
+
+    gen_mols = []
+    for x, a in zip(x_one_hot, adj_one_hot):
+        mol = construct_mol(x, a, atomic_num_list)
+        c_mol, _ = correct_mol(mol)
+        vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
+        if vc_mol is not None:
+            gen_mols.append(vc_mol)
+
+    ##### Convert to SMILES #####
+    gen_mols = [mol for mol in gen_mols if mol is not None]  # remove None molecules
+    gen_smiles = mols_to_smiles(gen_mols)
+    gen_smiles = [smi for smi in gen_smiles if len(smi)]  # remove empty smiles
+
+    # Evaluate metrics
+    scores = get_all_metrics(gen=gen_smiles, k=len(gen_smiles), device='cpu', n_jobs=1, test=test_smiles, train=train_smiles)
+    scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols))
+
+    return scores, scores_nspdk
