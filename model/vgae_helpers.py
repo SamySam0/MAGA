@@ -13,6 +13,7 @@ def prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks):
     annots_recon = discretize(annots_recon, masks=masks)
     none_type = 1 - masks.float()
     annots_recon = torch.cat((annots_recon, none_type), dim=-1).detach().cpu()
+    adjs_recon = adjs_recon[:, :, :, 1:]
     adjs_recon = adjs_recon.permute(0, 3, 1, 2).detach().cpu()
 
     return annots_recon, adjs_recon
