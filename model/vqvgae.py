@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from typing import List
 
-from model.vgae_basics import Encoder, Decoder
+from model.vgae_basics import Encoder, Decoder, DownPooling
 from model.vgae_quantizer import VectorQuantizer as Quantizer
 from model.vgae_helpers import interpolate_batch, sizes_to_mask
 from torch_geometric.utils import to_dense_batch
@@ -21,6 +21,11 @@ class VQVAE(nn.Module):
         )
 
         self.scales = config.vqvgae.quantizer.scales
+        self.down_pooling = DownPooling(
+            node_dim=config.vqvgae.quantizer.emb_dim,
+            pooling_to_size=self.scales[-1],
+        )
+
         self.quantizer = Quantizer(
             codebook_size=config.vqvgae.quantizer.codebook_size, 
             embedding_dim=config.vqvgae.quantizer.emb_dim, 
@@ -41,27 +46,20 @@ class VQVAE(nn.Module):
         
     def forward(self, batch):
         # Encoder
+        original_graph_sizes = batch.batch.bincount()
         node_feat, _ = self.encoder(batch)
 
-        # Save mask for decoding
-        _, node_masks = to_dense_batch(node_feat, batch.batch) # mask: B, max_nodes
-
-        # Interpolate all graphs to max scale's size
-        graphs = torch.split(node_feat, batch.batch.bincount().tolist())
-        interpolated_nodes = interpolate_batch(
-            graphs=graphs, 
-            to_sizes=list(self.scales[-1] for _ in range(len(graphs))), 
-            padding_size=None
-        ) # B, max_scale, C
-
+        # Down Pooling
+        node_feat, batch_idx = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
+        node_feat = node_feat.view(len(original_graph_sizes), self.scales[-1], self.quantizer.embedding_dim)
+        
         # Quantizer
-        quantized, commitment_loss, q_latent_loss = self.quantizer(interpolated_nodes) # B, max_scale, C
+        quantized, commitment_loss, q_latent_loss = self.quantizer(node_feat) # B, max_scale, C
 
-        # Interpolate back to original sizes and pad
+        # Interpolate to original graph sizes and pad
         graphs = torch.split(quantized, 1)
-        original_sizes = node_masks.sum(1)
-        quantized = interpolate_batch(
-            graphs=graphs, to_sizes=original_sizes, padding_size=node_masks.size(1),
+        quantized, node_masks = interpolate_batch(
+            graphs=graphs, to_sizes=original_graph_sizes, padding_size=max(original_graph_sizes),
         ) # B, max_nodes, C
 
         # Decoder
@@ -69,8 +67,11 @@ class VQVAE(nn.Module):
         return commitment_loss, q_latent_loss, nodes_recon, edges_recon, node_masks
     
     def forward_init(self, batch):
-        node_feat, _ = self.encoder(batch) 
-        quantized, node_masks = to_dense_batch(node_feat, batch.batch) # B, max_nodes, C and B, max_nodes
+        original_graph_sizes = batch.batch.bincount()
+
+        node_feat, _ = self.encoder(batch)
+        node_feat, batch_idx = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
+        node_feat = node_feat.view(len(original_graph_sizes), self.scales[-1], self.quantizer.embedding_dim)
 
         # First stage: VAE-only latent training, no quantization
         if self.quantizer.init_steps > 0:
@@ -78,31 +79,25 @@ class VQVAE(nn.Module):
         
         # Secons stage: collect latent to initialise codebook words with k++ means, no quantization
         elif self.quantizer.collect_phase:
-            # Interpolate all graphs to max scale's size
-            graphs = torch.split(node_feat, batch.batch.bincount().tolist())
-            interpolated_nodes = interpolate_batch(
-                graphs=graphs, 
-                to_sizes=list(self.scales[-1] for _ in range(len(graphs))), 
-                padding_size=None
-            ) # B, max_scale, C
-
-            self.quantizer.collect_samples(interpolated_nodes.detach())
+            self.quantizer.collect_samples(node_feat.detach())
         
+        # Interpolate to original graph sizes and pad
+        graphs = torch.split(node_feat, 1)
+        quantized, node_masks = interpolate_batch(
+            graphs=graphs, to_sizes=original_graph_sizes, padding_size=max(original_graph_sizes),
+        ) # B, max_nodes, C
+
         nodes_recon, edges_recon = self.decoder(quantized, mask=node_masks)
         return nodes_recon, edges_recon, node_masks
     
     def graph_to_idxBl(self, batch):
+        original_graph_sizes = batch.batch.bincount()
+
         node_feat, _ = self.encoder(batch)
-        graphs = torch.split(node_feat, batch.batch.bincount().tolist())
+        node_feat, batch_idx = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
+        node_feat = node_feat.view(len(original_graph_sizes), self.scales[-1], self.quantizer.embedding_dim)
 
-        # Interpolate all graphs to max scale's size
-        interpolated_nodes = interpolate_batch(
-            graphs=graphs, 
-            to_sizes=list(self.scales[-1] for _ in range(len(graphs))), 
-            padding_size=None,
-        ) # B, max_scale, C
-
-        return self.quantizer.f_to_idxBl(interpolated_nodes)
+        return self.quantizer.f_to_idxBl(node_feat)
     
     def fhat_to_graph(self, f_hat, original_sizes):
         node_masks = sizes_to_mask(original_sizes, max_size=self.scales[-1], device=f_hat.device)
