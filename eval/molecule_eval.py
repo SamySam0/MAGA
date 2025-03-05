@@ -280,11 +280,12 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
-
-    gen_mols = []
+    gen_mols, num_no_correct = [], 0
     for x, a in zip(node_one_hot, adj_one_hot):
         mol = construct_mol(x, a, atomic_num_list)
-        c_mol, _ = correct_mol(mol)
+        c_mol, no_correct = correct_mol(mol)
+        if no_correct:
+           num_no_correct += 1
         vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
         if vc_mol is not None:
             gen_mols.append(vc_mol)
@@ -298,4 +299,9 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     scores = get_all_metrics(gen=gen_smiles, k=len(gen_smiles), device='cpu', n_jobs=1, test=test_smiles, train=train_smiles)
     scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols))
 
-    return scores, scores_nspdk
+    valid_wo_correction = float(num_no_correct / len(gen_mols))
+    uniqueness = scores[f'unique@{len(gen_smiles)}']
+    novelty = scores['Novelty']
+    fcd = scores['FCD/Test']
+
+    return valid_wo_correction, uniqueness, novelty, fcd, scores_nspdk
