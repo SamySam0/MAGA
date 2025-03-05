@@ -8,7 +8,7 @@ vqvgae:
     hidden_dim: 128
     emb_dim: 32
   quantizer:
-    codebook_size: 1024
+    codebook_size: 2048
     emb_dim: 8
     commitment_cost: 0.25
     init_steps: 1_000
@@ -17,6 +17,10 @@ vqvgae:
       - 1
       - 3
       - 5
+  latent_attn_proj:
+    n_layers: 3
+    n_heads: 4
+    max_gsize: 35
   train:
     epochs: 10
     batch_size: 32
@@ -28,9 +32,9 @@ vqvgae:
     sch_patience: 4
 
 var:
-  depth: 2
+  depth: 4
   num_heads: 4
-  emb_dim: 256
+  emb_dim: 128
   num_classes: 30
   train:
     epochs: 5
@@ -52,7 +56,7 @@ data:
   additional_node_features: 5   # +5 for Spectral Features
   edge_feature_dim: 4
   n_exp_samples: 1024
-  exp_batch_size: 64            # Only for VAR, for VQ-VGAE is = to n_exp_samples
+  exp_batch_size: 1024          # Only for VAR, for VQ-VGAE is = to n_exp_samples
   qm9_node_feature_dim: 5
 
 zinc:

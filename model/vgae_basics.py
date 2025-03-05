@@ -1,5 +1,5 @@
 from torch import nn
-from model.vgae_blocks import MPNNLayer, GNNLayer
+from model.vgae_blocks import MPNNLayer, GNNLayer, AttnLatentProj
 from torch_geometric.nn import SAGPooling
 
 
@@ -43,25 +43,40 @@ class Decoder(nn.Module):
         n_layers, hidden_dim, emb_dim,
         in_node_feature_dim,
         out_node_feature_dim, out_edge_feature_dim,
+        latent_proj_n_layers, latent_proj_n_heads, latent_proj_max_gsize,
     ):
         super().__init__()
-        self.out_node_feature_dim = out_node_feature_dim
+        # First component: Attention Latent Projection
+        self.latent_attn_proj = AttnLatentProj(
+            d_model=in_node_feature_dim,
+            n_layers=latent_proj_n_layers,
+            n_heads=latent_proj_n_heads,
+            max_gsize=latent_proj_max_gsize,
+        )
         
+        # Second component: GNN
+        self.out_node_feature_dim = out_node_feature_dim
         layers = [GNNLayer(node_dim=in_node_feature_dim, edge_dim=0, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim)]
         for _ in range(1, n_layers-1):
             layers.append(GNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=emb_dim, edge_emb_dim=emb_dim))
         layers.append(GNNLayer(node_dim=emb_dim, edge_dim=emb_dim, hidden_dim=hidden_dim, node_emb_dim=out_node_feature_dim, edge_emb_dim=out_edge_feature_dim))
         self.layers = nn.Sequential(*layers)
     
-    def forward(self, node_feat, mask=None):
+    def forward(self, node_feat, init_graph_sizes):
+        # Project input graphs (node features) to desired output sizes
+        node_feat, mask = self.latent_attn_proj(node_feat, init_graph_sizes)
+
+        # Decode projected node features
         node_feat, edge_feat = self.layers[0](node_feat)
         for i, layer in enumerate(self.layers[1:-1]):
             node_feat_new, edge_feat_new = layer(node_feat, edge_feat, skip_connection=True)
             node_feat = node_feat + node_feat_new
             edge_feat = edge_feat + edge_feat_new
         node_feat, edge_feat = self.layers[-1](node_feat, edge_feat)
+
         if mask is not None:
             node_feat = node_feat * mask.unsqueeze(-1)
             edge_feat = edge_feat * mask.reshape(node_feat.shape[0], -1, 1, 1)
             edge_feat = edge_feat * mask.reshape(node_feat.shape[0], 1, -1, 1)
-        return node_feat, edge_feat
+        
+        return node_feat, edge_feat, mask

@@ -102,6 +102,7 @@ class VAR_Trainer(object):
         all_annots, all_adjs = [], []
         
         start_time = time.time()
+        # TODO: fix this for when there is more than one batch total
         with torch.no_grad():
             for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
                 label = self.pd_graph_size.sample(batch_size).to(self.device)

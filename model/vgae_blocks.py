@@ -92,3 +92,47 @@ class GNNLayer(nn.Module):
         nodes_ = nodes_.repeat(1, nodes.shape[1], 1, 1)
         nodesT = nodes_.transpose(1, 2)
         return torch.cat([nodes_, nodesT], dim=3)
+
+
+class AttnLatentProj(nn.Module):
+    def __init__(self, d_model, n_layers, n_heads, max_gsize):
+        '''
+        d_model: dimension of latent and output representations.
+        n_layers: number of transformer decoder layers.
+        n_head: number of attention heads.
+        max_gsize: maximum number of queries (this should be at least as large as the maximum expected query length).
+        '''
+        super(AttnLatentProj, self).__init__()
+        self.d_model = d_model
+        self.max_gsize = max_gsize
+
+        # Learnable query embeddings for positions 0 to max_gsize-1.
+        self.query_embed = nn.Embedding(max_gsize, d_model)
+
+        # Transformer decoder layer
+        decoder_layer = nn.TransformerDecoderLayer(d_model=d_model, nhead=n_heads)
+        self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=n_layers)
+    
+    def forward(self, latent, init_graph_sizes):
+        B = latent.size(0)
+        T = max(init_graph_sizes) # Set T as the maximum desired queries in the batch
+
+        # The transformer expects memory in shape (S, B, d_model)
+        memory = latent.transpose(0, 1)
+        
+        # Retrieve the first T query embeddings: shape (T, d_model)
+        query_embed = self.query_embed.weight[:T]
+        # Expand queries to shape (T, B, d_model)
+        tgt = query_embed.unsqueeze(1).repeat(1, B, 1)
+        
+        # Create key padding mask of shape (B, T)
+        # For each sample i, positions [init_graph_sizes[i]:] are padded (mask set to True)
+        mask = torch.ones((B, T), dtype=torch.bool, device=latent.device)
+        for i, num_q in enumerate(init_graph_sizes):
+            if num_q < T:
+                mask[i, num_q:] = 0
+        
+        # Pass tgt_key_padding_mask to the transformer decoder
+        output = self.transformer_decoder(tgt, memory, tgt_key_padding_mask=mask)
+        output = output.transpose(0, 1)  # shape: (B, T, d_model)
+        return output, mask.bool()
