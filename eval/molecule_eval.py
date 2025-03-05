@@ -280,15 +280,9 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
-    # Add padding dimension for dummy atom if needed
-    if node_one_hot.shape[-1] != len(atomic_num_list):
-        padding = 1 - node_one_hot.sum(dim=-1, keepdim=True)  # Calculate padding for dummy atom
-        x_one_hot = torch.cat([node_one_hot, padding], dim=-1).numpy()
-    else:
-        x_one_hot = node_one_hot.numpy()
 
     gen_mols = []
-    for x, a in zip(x_one_hot, adj_one_hot):
+    for x, a in zip(node_one_hot, adj_one_hot):
         mol = construct_mol(x, a, atomic_num_list)
         c_mol, _ = correct_mol(mol)
         vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
