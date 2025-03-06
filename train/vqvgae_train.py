@@ -3,13 +3,14 @@ from train.vqvgae_trainer import VQVGAE_Trainer
 
 
 def train(
-    model, optimizer, scheduler, train_loader, valid_loader, 
+    model, optimizer, scheduler, loss_fn, train_loader, valid_loader, 
     device, train_gamma, n_epochs, log_loss_per_n_epoch, n_exp_samples,
     checkpoint_path, checkpoint_name,
 ):
     # Setup trainer
     trainer = VQVGAE_Trainer(
         model=model, optimizer=optimizer, scheduler=scheduler, 
+        loss_fn=loss_fn,
         dataloaders=(train_loader, valid_loader), 
         device=device, gamma=train_gamma,
     )

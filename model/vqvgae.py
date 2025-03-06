@@ -43,7 +43,7 @@ class VQVAE(nn.Module):
             emb_dim=config.vqvgae.decoder.emb_dim,
             in_node_feature_dim=config.vqvgae.quantizer.emb_dim,
             out_node_feature_dim=config.data.qm9_node_feature_dim,
-            out_edge_feature_dim=config.data.edge_feature_dim,
+            out_edge_feature_dim=1+config.data.edge_feature_dim,        # +1 for "no edge" prediction
         )
         
     def forward(self, batch):

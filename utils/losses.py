@@ -1,77 +1,50 @@
 import torch
-import torch.nn.functional as F
-from torch_geometric.utils import dense_to_sparse, to_dense_adj, to_dense_batch
+from torch_geometric.utils import to_dense_adj, to_dense_batch
 
 
-def get_losses(batch, nodes_rec, edges_rec, n_node_feat, node_masks, edge_masks):
-    node_loss, nodes_rec, nodes_target = get_node_loss_and_recon(
-        batch, nodes_rec, node_masks, n_node_feat,
-    )
-    edge_loss, edges_rec = get_edge_loss_and_recon(batch, edges_rec, edge_masks)
+def get_losses(batch, loss_fn, node_logits, edge_logits, node_masks, n_node_feat):
+    node_loss = get_node_loss(batch, node_logits, node_masks, loss_fn, n_node_feat)
+
+    edge_masks = get_edge_masks(node_masks)
+    edge_loss = get_edge_loss(batch, edge_logits, edge_masks, loss_fn)
     
     # Calculate the total loss
     tot = node_masks.sum() + edge_masks.sum()
     recon_loss = (edge_masks.sum() / tot) * edge_loss + (node_masks.sum() / tot) * node_loss
-    return recon_loss, (node_loss, edge_loss, nodes_rec, edges_rec)
+    return recon_loss, (node_loss, edge_loss)
 
 
-def get_node_loss_and_recon(batch, nodes_rec, node_masks, n_node_feat):
-    '''
-    Return the loss for the node features and the reconstructed and discretized instance
-    '''
-    dense_nodes, _ = to_dense_batch(batch.x, batch.batch)
+def get_node_loss(batch, node_logits, node_masks, loss_fn, n_node_feat):
+    target, _ = to_dense_batch(batch.x, batch.batch)
+    target = target[:, :, :n_node_feat].argmax(-1)
 
-    target = dense_nodes[:, :, :n_node_feat].argmax(-1)
+    preds = node_logits * node_masks.unsqueeze(-1)
 
-    nodes_rec = nodes_rec.log_softmax(-1) * node_masks
+    loss = loss_fn(input=preds.permute(0,2,1).contiguous(), target=target)
+    loss = loss.mean()
+    return loss
 
-    node_loss = F.nll_loss(nodes_rec.permute(0, 2, 1).contiguous(), target, reduction='none')
-    node_loss = node_loss.mean()
-    nodes_rec = discretize(nodes_rec, node_masks)
-    none_type = 1-node_masks.float()
-    nodes_rec = torch.cat((nodes_rec[:, :, :n_node_feat], none_type), dim=-1)
-    return node_loss, nodes_rec, target
+def get_edge_loss(batch, edge_logits, edge_masks, loss_fn):
+    # Make the adj matrix symmetric
+    edge_logits = (edge_logits.transpose(1, 2) + edge_logits) / 2
 
-def get_edge_loss_and_recon(batch, edges_rec, edge_masks):
-    '''
-    Return the loss for the edge features and the reconstructed and discretized instance
-    '''
-    edges_rec = (edges_rec.transpose(1, 2) + edges_rec) * .5
-    edges_rec = edges_rec.log_softmax(-1)
-    edge_target = get_edge_target(batch)
+    # Get edge target matrix 
+    target = to_dense_adj(batch.edge_index, batch=batch.batch, edge_attr=batch.edge_attr)
+    no_edge = 1 - target.sum(-1, keepdim=True)
+    target = torch.cat((no_edge, target), dim=-1)
+    target = target.argmax(-1)
 
-    edge_loss = F.nll_loss(edges_rec.permute(0, 3, 1, 2).contiguous(), edge_target, reduction='none')
-    edge_loss = edge_loss * edge_masks.squeeze()
-    edge_loss = edge_loss.mean()
-    edges_rec = discretize(edges_rec, edge_masks)
-    edges_rec[:, :, :, 0] = edges_rec[:, :, :, 0] + (1-edge_masks.squeeze())
-    return edge_loss, edges_rec
+    loss = loss_fn(input=edge_logits.permute(0, 3, 1, 2).contiguous(), target=target)
+    loss = loss * edge_masks.squeeze()
+    loss = loss.mean()
+    return loss
 
-
-def discretize(score, masks=None):
-    argmax = score.argmax(-1)
-    device = score.device
-    rec = torch.eye(score.shape[-1]).to(device)[argmax]
-    if masks is not None:
-        rec = rec * masks
-    return rec
-
-def get_edge_target(batch):
-    dense_edge_attr = to_dense_adj(batch.edge_index, batch=batch.batch, edge_attr=batch.edge_attr)
-    if len(dense_edge_attr.shape) == 3:
-        return dense_edge_attr
-    else:
-        no_edge = 1 - dense_edge_attr.sum(-1, keepdim=True)
-        dense_edge_attr = torch.cat((no_edge, dense_edge_attr), dim=-1)
-        return dense_edge_attr.argmax(-1)
 
 def get_edge_masks(node_masks):
-    device = node_masks.device
-    n = node_masks.shape[1]
-    batch_size = node_masks.shape[0]
+    batch_size, n = node_masks.shape
     mask_reversed = (1 - node_masks.float())
     mask_reversed = mask_reversed.reshape(batch_size, -1, 1) + mask_reversed.reshape(batch_size, 1, -1)
-    mask_reversed = mask_reversed + torch.eye(n).to(device)
+    mask_reversed = mask_reversed + torch.eye(n).to(node_masks.device)
     mask_reversed = (mask_reversed>0).float()
     masks = 1-mask_reversed
     return masks.unsqueeze(-1)

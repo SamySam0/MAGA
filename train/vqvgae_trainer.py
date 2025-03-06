@@ -4,15 +4,16 @@ from tqdm import tqdm
 
 from torch_geometric.loader import DataLoader
 from model.vgae_helpers import prepare_for_exp
-from utils.losses import get_losses, get_edge_masks
+from utils.losses import get_losses
 from eval.evaluation import qm9_eval
 
 
 class VQVGAE_Trainer(object):
-    def __init__(self, model, optimizer, scheduler, dataloaders, device, gamma):
+    def __init__(self, model, optimizer, scheduler, loss_fn, dataloaders, device, gamma):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.loss_fn = loss_fn
         self.device = device
         self.train_loader, self.valid_loader = dataloaders
         self.gamma = gamma # config.train.gamma
@@ -25,16 +26,14 @@ class VQVGAE_Trainer(object):
             nodes_recon, edges_recon, node_masks = self.model.forward_init(batch)
         else:
             commitment_loss, q_latent_loss, nodes_recon, edges_recon, node_masks = self.model(batch)
-        
-        masks = node_masks.detach(), get_edge_masks(node_masks) 
 
-        recon_loss, rec_losses = get_losses(
+        recon_loss, _ = get_losses(
             batch=batch, 
-            nodes_rec=nodes_recon, 
-            edges_rec=edges_recon, 
+            loss_fn=self.loss_fn,
+            node_logits=nodes_recon,
+            edge_logits=edges_recon,
+            node_masks=node_masks,
             n_node_feat=self.model.decoder.out_node_feature_dim,
-            node_masks=masks[0].unsqueeze(-1), 
-            edge_masks=masks[1],
         )
 
         if init_phase:
@@ -47,7 +46,7 @@ class VQVGAE_Trainer(object):
             self.optimizer.step()
         
         if experimenting:
-            return nodes_recon, edges_recon, masks[0], masks[1]
+            return nodes_recon, edges_recon, node_masks
         return recon_loss.item()
     
     def train_ep(self):
@@ -76,8 +75,8 @@ class VQVGAE_Trainer(object):
         batch = next(iter(exp_loader))
 
         with torch.no_grad():
-            annots_recon, adjs_recon, node_masks, edge_masks = self.step(batch.to(self.device), train=False, experimenting=True)
-            annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks, edge_masks)
+            annots_recon, adjs_recon, node_masks = self.step(batch.to(self.device), train=False, experimenting=True)
+            annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks)
             valid, unique, novel, valid_w_corr = qm9_eval(annots_recon, adjs_recon)
         
         return valid/n_samples, unique, novel, valid_w_corr/n_samples

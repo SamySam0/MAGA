@@ -1,4 +1,5 @@
 import torch, yaml, os
+from torch import nn
 from datetime import datetime
 from data.dataset import load_qm9_data
 from model import build_vqvgae
@@ -44,10 +45,11 @@ def main(config_path='config.yaml'):
     model = build_vqvgae(config, device, vqvgae_pretrain_path=None)
     optimizer = optim.Adam(model.parameters(), lr=config.vqvgae.train.lr, betas=(config.vqvgae.train.beta1, config.vqvgae.train.beta2))
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=config.vqvgae.train.lr_decay, patience=config.vqvgae.train.sch_patience, min_lr=2*1e-5)
+    loss_fn = nn.CrossEntropyLoss(reduction='none')
 
     # Train model
     train(
-        model=model, optimizer=optimizer, scheduler=scheduler,
+        model=model, optimizer=optimizer, scheduler=scheduler, loss_fn=loss_fn,
         train_loader=train_loader, valid_loader=val_loader,
         device=device, train_gamma=config.vqvgae.train.gamma, 
         n_epochs=config.vqvgae.train.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch, n_exp_samples=config.data.n_exp_samples,
