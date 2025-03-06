@@ -1,13 +1,11 @@
 import torch, time
 from torch import nn
-import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 from collections import Counter
 from typing import List
 
 from model.vgae_helpers import prepare_for_exp
-from utils.losses import get_edge_masks
 from eval.evaluation import qm9_eval
 
 
@@ -110,8 +108,7 @@ class VAR_Trainer(object):
                 nodes_recon, edges_recon, node_masks = self.var.autoregressive_infer_cfg(
                     B=batch_size, label_B=label, cfg=4, top_k=900, top_p=0.95
                 )
-                edge_masks = get_edge_masks(node_masks) 
-                annots_recon, adjs_recon = prepare_for_exp(nodes_recon, edges_recon, node_masks, edge_masks)
+                annots_recon, adjs_recon = prepare_for_exp(nodes_recon, edges_recon, node_masks, node_masks)
                 all_annots.append(annots_recon)
                 all_adjs.append(adjs_recon)
         
