@@ -11,8 +11,8 @@ import torch.nn.functional as F
 
 # risky imports
 from rdkit import Chem, RDLogger
-from moses.metrics.metrics import get_all_metrics
 from eden.graph import vectorize
+from eval.metrics.metrics import get_all_metrics
 RDLogger.DisableLog('rdApp.*')
 
 ##### Constants #####
