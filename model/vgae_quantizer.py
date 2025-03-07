@@ -24,10 +24,10 @@ class VectorQuantizer(nn.Module):
         self.collect_desired_size = collect_desired_size
         self.register_buffer("collected_samples", collected_samples)
 
-        # TODO: Check if embedding_dim = C
-        self.downpooling = nn.ModuleDict({
-            str(scale): DownPooling(node_dim=embedding_dim, pooling_to_size=scale) for scale in scales
-        })
+        # # TODO: Check if embedding_dim = C
+        # self.downpooling = nn.ModuleDict({
+        #     str(scale): DownPooling(node_dim=embedding_dim, pooling_to_size=scale) for scale in scales
+        # })
         
     def forward(self, f_BNC):
         f_BCN = f_BNC.permute(0, 2, 1)
@@ -42,10 +42,10 @@ class VectorQuantizer(nn.Module):
         SN = len(self.scales)
         for si, pn in enumerate(self.scales):
 
-            # TODO: Not supposed to be for embedding scales? Supposed to be for graphs?
+            # # TODO: Not supposed to be for embedding scales? Supposed to be for graphs?
 
-            DownPooling = self.downpooling[str(pn)]
-            node_feat, batch_idx = DownPooling.forward(f_BCN, edge_index, batch)
+            # DownPooling = self.downpooling[str(pn)]
+            # node_feat, batch_idx = DownPooling.forward(f_BCN, edge_index, batch)
 
 
             # Downpooling
