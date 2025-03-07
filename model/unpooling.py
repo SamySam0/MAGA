@@ -1,15 +1,11 @@
 from torch import nn
 from model.vgae_blocks import MPNNLayer, GNNLayer, AttnLatentProj
-from torch_geometric.nn import SAGPooling
+from torch_geometric.nn import TransformerConv
 
-
-class Unpooling(nn.Module):
-    def __init__(self, node_dim, pooling_to_size):
+class TransformerGraphDecoder(nn.Module):
+    def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.pool = SAGPooling(node_dim, ratio=int(pooling_to_size))
-    
-    def forward(self, node_feat, edge_index, batch):
-        node_feat, _, _, batch_idx, _, _ = self.pool(
-            node_feat, edge_index, batch=batch,
-        )
-        return node_feat, batch_idx
+        self.conv1 = TransformerConv(in_channels, out_channels, heads=4)
+
+    def forward(self, x, edge_index):
+        return self.conv1(x, edge_index)
