@@ -209,57 +209,9 @@ def compute_nspdk_mmd(samples1, samples2, n_jobs=None):
 
     return np.average(X) + np.average(Y) - 2 * np.average(Z)
 
-def mask_nodes(nodes, node_flags, value=0.0, in_place=True, along_dim=None):
-    """
-    Masking out node embeddings according to node flags.
-    @param nodes:        [B, N] or [B, N, D] by default, [B, *, N, *] if along_dim is specified
-    @param node_flags:   [B, N] or [B, N, N]
-    @param value:        scalar
-    @param in_place:     flag of in place operation
-    @param along_dim:    along certain specified dimension
-    @return NODES:       [B, N] or [B, N, D]
-    """
-    if len(node_flags.shape) == 3:
-        # raise ValueError("node_flags should be [B, N] or [B, N, D]")
-        # if node_flags is [B, N, N], then we don't apply any mask
-        return nodes
-    elif len(node_flags.shape) == 2:
-        if along_dim is None:
-            # mask along the second dimension by default
-            if len(nodes.shape) == 2:
-                pass
-            elif len(nodes.shape) == 3:
-                node_flags = node_flags.unsqueeze(-1)  # [B, N, 1]
-            else:
-                raise NotImplementedError
-        else:
-            assert nodes.size(along_dim) == len(node_flags)
-            shape_ls = list(node_flags.shape)
-            assert len(shape_ls) == 2
-            for i, dim in enumerate(nodes.shape):
-                if i == 0:
-                    pass
-                else:
-                    if i < along_dim:
-                        shape_ls.insert(1, 1)  # insert 1 at the second dim
-                    elif i == along_dim:
-                        assert shape_ls[i] == dim  # check the length consistency
-                    elif i > along_dim:
-                        shape_ls.insert(len(shape_ls), 1)  # insert 1 at the end
-            node_flags = node_flags.view(*shape_ls)  # [B, *, N, *]
-
-        if in_place:
-            nodes.masked_fill_(torch.logical_not(node_flags), value)
-        else:
-            nodes = nodes.masked_fill(torch.logical_not(node_flags), value)
-    else:
-        raise NotImplementedError
-    return nodes
-
-
 ##### Make final metric function ####
 
-# [B, no_of_nodes, N] for node_recon, [B, no_of_bonds, N, N] for adj_recon
+# [B, N, num_node_types] for node_recon, [B, num_bond_types, N, N] for adj_recon
 def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     """
     Evaluate molecules from one-hot encoded node and adjacency tensors
