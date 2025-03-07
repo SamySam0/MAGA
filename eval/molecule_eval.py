@@ -67,11 +67,6 @@ def construct_mol(x, adj, atomic_num_list):
         mol.AddAtom(Chem.Atom(int(atomic_num_list[atom])))
     adj = np.argmax(adj, axis=0)            # 9, 9
     adj = adj[atoms_exist, :][:, atoms_exist]
-    adj[adj == 3] = -1
-    adj += 1                                # bonds 0, 1, 2, 3 -> 1, 2, 3, 0 (0 denotes the virtual bond)
-    mask = 1 - np.eye(adj.shape[0])
-    adj *= mask
-    adj = adj.numpy()
     for start, end in zip(*np.nonzero(adj)):
         if start > end:
             mol.AddBond(int(start), int(end), bond_decoder[adj[start, end]])
@@ -220,10 +215,13 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
         adj_one_hot: One-hot encoded adjacency tensor [B, num_adj_type, N, N]
         dataset_name: Name of the dataset ('QM9' or 'ZINC250K')
     """
+    node_one_hot = node_one_hot.detach().cpu().numpy()
+    adj_one_hot  = adj_one_hot.detach().cpu().numpy()
+
     train_smiles, test_smiles = load_smiles(dataset_name)
     train_smiles = canonicalize_smiles(train_smiles)
     test_smiles = canonicalize_smiles(test_smiles)
-    test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))
+    # test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))
 
     if dataset_name == 'QM9':
         atomic_num_list = [6, 7, 8, 9, 0]
@@ -238,9 +236,10 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
         c_mol, no_correct = correct_mol(mol)
         if no_correct:
            num_no_correct += 1
-        vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
-        if vc_mol is not None:
-            gen_mols.append(vc_mol)
+        # vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
+        # if vc_mol is not None:
+        #     gen_mols.append(vc_mol)
+        gen_mols.append(mol)
 
     ##### Convert to SMILES #####
     gen_mols = [mol for mol in gen_mols if mol is not None]  # remove None molecules
@@ -249,11 +248,11 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
 
     # Evaluate metrics
     scores = get_all_metrics(gen=gen_smiles, k=len(gen_smiles), device='cpu', n_jobs=1, test=test_smiles, train=train_smiles)
-    scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols))
+    # scores_nspdk = eval_graph_list(test_graph_list, mols_to_nx(gen_mols))
 
     valid_wo_correction = float(num_no_correct / len(gen_mols))
     uniqueness = scores[f'unique@{len(gen_smiles)}']
     novelty = scores['Novelty']
     fcd = scores['FCD/Test']
 
-    return valid_wo_correction, uniqueness, novelty, fcd, scores_nspdk
+    return valid_wo_correction, uniqueness, novelty, fcd, 999999
