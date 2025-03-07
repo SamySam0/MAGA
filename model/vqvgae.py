@@ -51,7 +51,7 @@ class VQVAE(nn.Module):
         init_graph_sizes = batch.batch.bincount()
         node_feat, _ = self.encoder(batch)
         # Down Pooling
-        node_feat, batch_idx = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
+        node_feat, _ = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
         node_feat = node_feat.view(len(init_graph_sizes), self.scales[-1], self.quantizer.embedding_dim) # B, max_scale, 16
         # Quantizer
         quantized, commitment_loss, q_latent_loss = self.quantizer(node_feat) # B, max_scale, C
@@ -64,7 +64,7 @@ class VQVAE(nn.Module):
         init_graph_sizes = batch.batch.bincount()
         node_feat, _ = self.encoder(batch)
         # Down Pooling
-        node_feat, batch_idx = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
+        node_feat, _ = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
         node_feat = node_feat.view(len(init_graph_sizes), self.scales[-1], self.quantizer.embedding_dim)
 
         # First stage: VAE-only latent training, no quantization
@@ -84,7 +84,7 @@ class VQVAE(nn.Module):
         init_graph_sizes = batch.batch.bincount()
         node_feat, _ = self.encoder(batch)
         # Down Pooling
-        node_feat, batch_idx = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
+        node_feat, _ = self.down_pooling(node_feat, edge_index=batch.edge_index, batch=batch.batch)
         node_feat = node_feat.view(len(init_graph_sizes), self.scales[-1], self.quantizer.embedding_dim)
         return self.quantizer.f_to_idxBl(node_feat)
     

@@ -10,10 +10,10 @@ class DownPooling(nn.Module):
         self.pool = SAGPooling(node_dim, ratio=int(pooling_to_size))
     
     def forward(self, node_feat, edge_index, batch):
-        node_feat, _, _, batch_idx, _, _ = self.pool(
+        node_feat, _, _, _, _, _ = self.pool(
             node_feat, edge_index, batch=batch,
         )
-        return node_feat, batch_idx
+        return node_feat
     
 
 class Unpooling(nn.Module):
