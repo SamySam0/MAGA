@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch_geometric.loader import DataLoader
 from model.vgae_helpers import prepare_for_exp
 from utils.losses import get_losses
-from eval.evaluation import qm9_eval
+from eval.molecule_eval import get_evaluation_metrics
 
 
 class VQVGAE_Trainer(object):
