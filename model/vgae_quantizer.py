@@ -22,6 +22,7 @@ class VectorQuantizer(nn.Module):
         collected_samples = torch.Tensor(0, self.embedding_dim)
         self.collect_desired_size = collect_desired_size
         self.register_buffer("collected_samples", collected_samples)
+
         
     def forward(self, f_BNC):
         f_BCN = f_BNC.permute(0, 2, 1)
@@ -100,6 +101,7 @@ class VectorQuantizer(nn.Module):
             idx_N = torch.argmin(d_no_grad, dim=1)
             
             idx_Bn = idx_N.view(B, pn)
+            # Upscaling to original dims
             h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
             f_hat.add_(h_BCn)
             f_rest.sub_(h_BCn)
