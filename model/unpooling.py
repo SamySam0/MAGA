@@ -1,7 +1,6 @@
 from torch import nn
 from model.vgae_blocks import MPNNLayer, GNNLayer, AttnLatentProj
 from torch_geometric.nn import SAGPooling
-from model.unpooling import Unpooling
 
 
 class Unpooling(nn.Module):
