@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from scipy.cluster.vq import kmeans2
 from typing import List
+from vgae_basics import DownPooling
 
 
 class VectorQuantizer(nn.Module):
@@ -22,6 +23,11 @@ class VectorQuantizer(nn.Module):
         collected_samples = torch.Tensor(0, self.embedding_dim)
         self.collect_desired_size = collect_desired_size
         self.register_buffer("collected_samples", collected_samples)
+
+        # TODO: Check if embedding_dim = C
+        self.downpooling = nn.ModuleDict({
+            str(scale): DownPooling(node_dim=embedding_dim, pooling_to_size=scale) for scale in scales
+        })
         
     def forward(self, f_BNC):
         f_BCN = f_BNC.permute(0, 2, 1)
@@ -35,6 +41,14 @@ class VectorQuantizer(nn.Module):
         mean_commitment_loss: torch.Tensor = 0.0
         SN = len(self.scales)
         for si, pn in enumerate(self.scales):
+
+            # TODO: Not supposed to be for embedding scales? Supposed to be for graphs?
+
+            DownPooling = self.downpooling[str(pn)]
+            node_feat, batch_idx = DownPooling.forward(f_BCN, edge_index, batch)
+
+
+            # Downpooling
             rest_NC = F.interpolate(f_rest, size=(pn), mode='area').permute(0, 2, 1).reshape(-1, C)
 
             if self.collect_phase:
@@ -45,6 +59,7 @@ class VectorQuantizer(nn.Module):
             idx_N = torch.argmin(d_no_grad, dim=1)
 
             idx_Bn = idx_N.view(B, pn)
+            # Upscaling
             h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
 
             f_hat = f_hat + h_BCn
@@ -94,12 +109,14 @@ class VectorQuantizer(nn.Module):
         SN = len(self.scales)
         for si, pn in enumerate(self.scales):
             # Find the nearest embedding
+            # Downsampling
             z_NC = F.interpolate(f_rest, size=(pn), mode='area').permute(0, 2, 1).reshape(-1, C)
             d_no_grad = torch.sum(z_NC.square(), dim=1, keepdim=True) + torch.sum(self.embedding.weight.data.square(), dim=1, keepdim=False)
             d_no_grad.addmm_(z_NC, self.embedding.weight.data.T, alpha=-2, beta=1)
             idx_N = torch.argmin(d_no_grad, dim=1)
             
             idx_Bn = idx_N.view(B, pn)
+            # Upscaling to original dims
             h_BCn = F.interpolate(self.embedding(idx_Bn).permute(0, 2, 1), size=(N), mode='linear').contiguous()
             f_hat.add_(h_BCn)
             f_rest.sub_(h_BCn)
@@ -116,16 +133,20 @@ class VectorQuantizer(nn.Module):
         f_hat = gt_idx_Bl[0].new_zeros(B, C, N, dtype=torch.float32)
         pn_next = self.scales[0]
         for si in range(SN-1):
+            # Upscaling
             h_BCn = F.interpolate(self.embedding(gt_idx_Bl[si]).transpose_(1, 2).view(B, C, pn_next), size=(N), mode='linear')
             pn_next = self.scales[si+1]
+            # Upscaling?
             next_scales.append(F.interpolate(f_hat, size=(pn_next), mode='area').view(B, C, -1).transpose(1, 2))
         
         return torch.cat(next_scales, dim=1) # cat BlCs to BLC
     
     def get_next_autoregressive_input(self, si: int, SN: int, f_hat, h_BCn):
         N = self.scales[-1]
+        # Upscaling
         h = F.interpolate(h_BCn, size=(N), mode='linear')
         f_hat.add_(h)
         if si == SN-1:
             return f_hat, f_hat
+        # Upscaling?
         return f_hat, F.interpolate(f_hat, size=(self.scales[si+1]), mode='area')

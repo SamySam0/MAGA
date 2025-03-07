@@ -10,7 +10,7 @@ from torch_geometric.data import Data
 from rdkit.Chem.QED import qed
 from rdkit.Chem.rdMolDescriptors import BCUT2D
 from rdkit.Chem import Crippen
-import sascorer
+from scscore.utils.SA_Score import sascorer
 import numpy as np
 
 atom_list = ['C', 'N', 'O', 'F', 'S', 'Cl', 'Br', 'I', 'P']
