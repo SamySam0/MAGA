@@ -4,10 +4,45 @@ import numpy as np
 from scipy.spatial.distance import cosine as cos_distance
 from fcd_torch import FCD as FCDMetric
 from scipy.stats import wasserstein_distance
+from rdkit import RDLogger
 
-from moses.dataset import get_dataset, get_statistics
-from moses.utils import mapper
-from moses.utils import disable_rdkit_log, enable_rdkit_log
+# Commented out MOSES import - skipped as per user request
+# from moses.dataset import get_dataset, get_statistics
+
+# Simple replacement functions for MOSES functionality
+def get_dataset(name):
+    print("MOSES get_dataset called with:", name)
+    return []
+
+def get_statistics(name):
+    print("MOSES get_statistics called with:", name)
+    return {}
+
+# Define mapper function to replace the one from moses.utils
+def mapper(n_jobs):
+    """
+    Simple replacement for moses.utils.mapper
+    n_jobs: number of jobs for multiprocessing
+    """
+    if n_jobs == 1:
+        return map
+    pool = Pool(n_jobs)
+    def _mapper(*args, **kwargs):
+        return list(pool.map(*args, **kwargs))
+    return _mapper
+
+# Add RDKit logging control functions
+def disable_rdkit_log():
+    """Disable RDKit logging"""
+    RDLogger.DisableLog('rdApp.*')
+
+def enable_rdkit_log():
+    """Enable RDKit logging"""
+    RDLogger.EnableLog('rdApp.*')
+
+# Change import to use local functions
+# from utils import mapper
+# from utils import disable_rdkit_log, enable_rdkit_log
 from .utils import compute_fragments, average_agg_tanimoto, \
     compute_scaffolds, fingerprints, \
     get_mol, canonic_smiles, mol_passes_filters, \
@@ -63,18 +98,18 @@ def get_all_metrics(gen, k=None, n_jobs=1,
             raise ValueError(
                 "You cannot specify custom test "
                 "statistics for default test set")
-        test = get_dataset('test')
-        ptest = get_statistics('test')
+        # test = get_dataset('test')
+        # ptest = get_statistics('test')
 
     if test_scaffolds is None:
         if ptest_scaffolds is not None:
             raise ValueError(
                 "You cannot specify custom scaffold test "
                 "statistics for default scaffold test set")
-        test_scaffolds = get_dataset('test_scaffolds')
-        ptest_scaffolds = get_statistics('test_scaffolds')
+        # test_scaffolds = get_dataset('test_scaffolds')
+        # ptest_scaffolds = get_statistics('test_scaffolds')
 
-    train = train or get_dataset('train')
+    train = train #or get_dataset('train')
 
     if k is None:
         k = [1000, 10000]
