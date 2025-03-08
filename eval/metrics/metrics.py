@@ -8,41 +8,8 @@ from rdkit import RDLogger
 
 # Commented out MOSES import - skipped as per user request
 # from moses.dataset import get_dataset, get_statistics
-
-# Simple replacement functions for MOSES functionality
-def get_dataset(name):
-    print("MOSES get_dataset called with:", name)
-    return []
-
-def get_statistics(name):
-    print("MOSES get_statistics called with:", name)
-    return {}
-
-# Define mapper function to replace the one from moses.utils
-def mapper(n_jobs):
-    """
-    Simple replacement for moses.utils.mapper
-    n_jobs: number of jobs for multiprocessing
-    """
-    if n_jobs == 1:
-        return map
-    pool = Pool(n_jobs)
-    def _mapper(*args, **kwargs):
-        return list(pool.map(*args, **kwargs))
-    return _mapper
-
-# Add RDKit logging control functions
-def disable_rdkit_log():
-    """Disable RDKit logging"""
-    RDLogger.DisableLog('rdApp.*')
-
-def enable_rdkit_log():
-    """Enable RDKit logging"""
-    RDLogger.EnableLog('rdApp.*')
-
-# Change import to use local functions
-# from utils import mapper
-# from utils import disable_rdkit_log, enable_rdkit_log
+from .utils import mapper
+# from .utils import disable_rdkit_log, enable_rdkit_log
 from .utils import compute_fragments, average_agg_tanimoto, \
     compute_scaffolds, fingerprints, \
     get_mol, canonic_smiles, mol_passes_filters, \
@@ -113,7 +80,7 @@ def get_all_metrics(gen, k=None, n_jobs=1,
 
     if k is None:
         k = [1000, 10000]
-    disable_rdkit_log()
+    # disable_rdkit_log()
     metrics = {}
     close_pool = False
     if pool is None:
@@ -174,7 +141,7 @@ def get_all_metrics(gen, k=None, n_jobs=1,
 
     if train is not None:
         metrics['Novelty'] = novelty(mols, train, pool)
-    enable_rdkit_log()
+    # enable_rdkit_log()
     if close_pool:
         pool.close()
         pool.join()
@@ -265,7 +232,7 @@ def fraction_valid(gen, n_jobs=1):
         gen: list of SMILES
         n_jobs: number of threads for calculation
     """
-    gen = mapper(n_jobs)(get_mol, gen)
+    gen = list(mapper(n_jobs)(get_mol, gen))
     return 1 - gen.count(None) / len(gen)
 
 

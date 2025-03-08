@@ -18,16 +18,29 @@ from multiprocessing import Pool
 
 # Define our own mapper and get_mol instead of importing from Moses
 def mapper(n_jobs):
-    """
-    Map a function across a list using multiple processes
-    """
+    '''
+    Returns function for map call.
+    If n_jobs == 1, will use standard map
+    If n_jobs > 1, will use multiprocessing pool
+    If n_jobs is a pool object, will return its map function
+    '''
     if n_jobs == 1:
-        return map
-    from multiprocessing import Pool
-    pool = Pool(n_jobs)
-    def _mapper(*args, **kwargs):
-        return list(pool.map(*args, **kwargs))
-    return _mapper
+        def _mapper(*args, **kwargs):
+            return list(map(*args, **kwargs))
+
+        return _mapper
+    if isinstance(n_jobs, int):
+        pool = Pool(n_jobs)
+
+        def _mapper(*args, **kwargs):
+            try:
+                result = pool.map(*args, **kwargs)
+            finally:
+                pool.terminate()
+            return result
+
+        return _mapper
+    return n_jobs.map
 
 def get_mol(smiles_or_mol):
     """
