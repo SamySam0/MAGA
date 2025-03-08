@@ -9,9 +9,11 @@ vqvgae:
     emb_dim: 8
     commitment_cost: 0.25
     init_steps: 1_000
-    collect_desired_size: 100_000
+    collect_desired_size: 50_000
     scales:
       - 1
+      - 2
+      - 3
   latent_attn_proj:
     n_layers: 3
     n_heads: 4
@@ -31,9 +33,9 @@ var:
 ### TRAINING HYPERPARAMETERS ###
 train:
   vqvgae:
-    epochs: 10
+    epochs: 35
     batch_size: 32
-    lr: 0.001
+    lr: 0.005
     beta1: 0.9
     beta2: 0.99
     gamma: 0.1
@@ -55,7 +57,7 @@ train:
 ### DATASET ###
 dataset:
   name: QM9
-  debug: true
+  debug: false
   n_exp_samples: 1024
 
 qm9:

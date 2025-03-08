@@ -39,7 +39,7 @@ def get_indices(root_dir, dataset_name, n_instances, debug):
     train_idx = train_idx[train_idx]
 
     if debug:
-        train_idx = train_idx[:50*32]
-        test_idx = test_idx[:1024]
+        train_idx = train_idx[:30_000]
+        test_idx = test_idx[:1024*10]
 
     return train_idx, test_idx
