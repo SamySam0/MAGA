@@ -77,9 +77,9 @@ class VQVGAE_Trainer(object):
         with torch.no_grad():
             annots_recon, adjs_recon, node_masks = self.step(batch.to(self.device), train=False, experimenting=True)
             annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks)
-            valid, unique, novel, valid_w_corr, _ = get_evaluation_metrics(annots_recon, adjs_recon, dataset_name=dataset_name)
+            valid, unique, novel = get_evaluation_metrics(annots_recon, adjs_recon, dataset_name=dataset_name)
         
-        return valid/n_samples, unique, novel, valid_w_corr/n_samples
+        return valid, unique, novel
     
     def init_codebook_training(self):
         while self.model.quantizer.init_steps > 0 or self.model.quantizer.collect_phase:

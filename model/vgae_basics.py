@@ -15,8 +15,7 @@ class DownPooling(nn.Module):
         )
         return node_feat
     
-
-class Unpooling(nn.Module):
+class UnPooling(nn.Module):
     def __init__(self, node_dim, pooling_to_size):
         super().__init__()
         self.pool = TransformerGraphDecoder(node_dim, ratio=int(pooling_to_size))

@@ -236,10 +236,9 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
         c_mol, no_correct = correct_mol(mol)
         if no_correct:
            num_no_correct += 1
-        vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
+        vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=False)
         if vc_mol is not None:
             gen_mols.append(vc_mol)
-        # gen_mols.append(mol)
 
     ##### Convert to SMILES #####
     gen_mols = [mol for mol in gen_mols if mol is not None]  # remove None molecules
@@ -253,6 +252,6 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     valid_wo_correction = float(num_no_correct / len(gen_mols))
     uniqueness = scores[f'unique@{len(gen_smiles)}']
     novelty = scores['Novelty']
-    fcd = scores['FCD/Test']
+    # fcd = scores['FCD/Test']
 
-    return valid_wo_correction, uniqueness, novelty, fcd, 999999
+    return valid_wo_correction, uniqueness, novelty

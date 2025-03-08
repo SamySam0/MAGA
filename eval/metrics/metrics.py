@@ -96,48 +96,48 @@ def get_all_metrics(gen, k=None, n_jobs=1,
     for _k in k:
         metrics['unique@{}'.format(_k)] = fraction_unique(gen, _k, pool)
 
-    if ptest is None:
-        ptest = compute_intermediate_statistics(test, n_jobs=n_jobs,
-                                                device=device,
-                                                batch_size=batch_size,
-                                                pool=pool)
-    if test_scaffolds is not None and ptest_scaffolds is None:
-        ptest_scaffolds = compute_intermediate_statistics(
-            test_scaffolds, n_jobs=n_jobs,
-            device=device, batch_size=batch_size,
-            pool=pool
-        )
+    # if ptest is None:
+    #     ptest = compute_intermediate_statistics(test, n_jobs=n_jobs,
+    #                                             device=device,
+    #                                             batch_size=batch_size,
+    #                                             pool=pool)
+    # if test_scaffolds is not None and ptest_scaffolds is None:
+    #     ptest_scaffolds = compute_intermediate_statistics(
+    #         test_scaffolds, n_jobs=n_jobs,
+    #         device=device, batch_size=batch_size,
+    #         pool=pool
+    #     )
     mols = mapper(pool)(get_mol, gen)
-    kwargs = {'n_jobs': pool, 'device': device, 'batch_size': batch_size}
-    kwargs_fcd = {'n_jobs': n_jobs, 'device': device, 'batch_size': batch_size}
-    metrics['FCD/Test'] = FCDMetric(**kwargs_fcd)(gen=gen, pref=ptest['FCD'])
-    metrics['SNN/Test'] = SNNMetric(**kwargs)(gen=mols, pref=ptest['SNN'])
-    metrics['Frag/Test'] = FragMetric(**kwargs)(gen=mols, pref=ptest['Frag'])
-    metrics['Scaf/Test'] = ScafMetric(**kwargs)(gen=mols, pref=ptest['Scaf'])
-    if ptest_scaffolds is not None:
-        metrics['FCD/TestSF'] = FCDMetric(**kwargs_fcd)(
-            gen=gen, pref=ptest_scaffolds['FCD']
-        )
-        metrics['SNN/TestSF'] = SNNMetric(**kwargs)(
-            gen=mols, pref=ptest_scaffolds['SNN']
-        )
-        metrics['Frag/TestSF'] = FragMetric(**kwargs)(
-            gen=mols, pref=ptest_scaffolds['Frag']
-        )
-        metrics['Scaf/TestSF'] = ScafMetric(**kwargs)(
-            gen=mols, pref=ptest_scaffolds['Scaf']
-        )
+    # kwargs = {'n_jobs': pool, 'device': device, 'batch_size': batch_size}
+    # kwargs_fcd = {'n_jobs': n_jobs, 'device': device, 'batch_size': batch_size}
+    # metrics['FCD/Test'] = FCDMetric(**kwargs_fcd)(gen=gen, pref=ptest['FCD'])
+    # metrics['SNN/Test'] = SNNMetric(**kwargs)(gen=mols, pref=ptest['SNN'])
+    # metrics['Frag/Test'] = FragMetric(**kwargs)(gen=mols, pref=ptest['Frag'])
+    # metrics['Scaf/Test'] = ScafMetric(**kwargs)(gen=mols, pref=ptest['Scaf'])
+    # if ptest_scaffolds is not None:
+    #     metrics['FCD/TestSF'] = FCDMetric(**kwargs_fcd)(
+    #         gen=gen, pref=ptest_scaffolds['FCD']
+    #     )
+    #     metrics['SNN/TestSF'] = SNNMetric(**kwargs)(
+    #         gen=mols, pref=ptest_scaffolds['SNN']
+    #     )
+    #     metrics['Frag/TestSF'] = FragMetric(**kwargs)(
+    #         gen=mols, pref=ptest_scaffolds['Frag']
+    #     )
+    #     metrics['Scaf/TestSF'] = ScafMetric(**kwargs)(
+    #         gen=mols, pref=ptest_scaffolds['Scaf']
+    #     )
 
-    metrics['IntDiv'] = internal_diversity(mols, pool, device=device)
-    metrics['IntDiv2'] = internal_diversity(mols, pool, device=device, p=2)
-    metrics['Filters'] = fraction_passes_filters(mols, pool)
+    # metrics['IntDiv'] = internal_diversity(mols, pool, device=device)
+    # metrics['IntDiv2'] = internal_diversity(mols, pool, device=device, p=2)
+    # metrics['Filters'] = fraction_passes_filters(mols, pool)
 
-    # Properties
-    for name, func in [('logP', logP), #('SA', SA),
-                       ('QED', QED),
-                       ('weight', weight)]:
-        metrics[name] = WassersteinMetric(func, **kwargs)(
-            gen=mols, pref=ptest[name])
+    # # Properties
+    # for name, func in [('logP', logP), #('SA', SA),
+    #                    ('QED', QED),
+    #                    ('weight', weight)]:
+    #     metrics[name] = WassersteinMetric(func, **kwargs)(
+    #         gen=mols, pref=ptest[name])
 
     if train is not None:
         metrics['Novelty'] = novelty(mols, train, pool)
