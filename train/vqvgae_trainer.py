@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch_geometric.loader import DataLoader
 from model.vgae_helpers import prepare_for_exp
 from utils.losses import get_losses
-from eval.molecule_eval import get_evaluation_metrics as qm9_eval
+from eval.mol_eval import get_evaluation_metrics
 
 
 class VQVGAE_Trainer(object):
@@ -69,15 +69,15 @@ class VQVGAE_Trainer(object):
         self.scheduler.step(val_recon_loss)
         return val_recon_loss
     
-    def qm9_exp(self, n_samples):
+    def exp(self, n_samples, dataset_name):
         self.model.eval()
-        exp_loader = DataLoader(self.train_loader.dataset, batch_size=n_samples)
+        exp_loader = DataLoader(self.valid_loader.dataset, batch_size=n_samples)
         batch = next(iter(exp_loader))
 
         with torch.no_grad():
             annots_recon, adjs_recon, node_masks = self.step(batch.to(self.device), train=False, experimenting=True)
             annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks)
-            valid, unique, novel, valid_w_corr, _ = qm9_eval(annots_recon, adjs_recon, dataset_name='QM9')
+            valid, unique, novel, valid_w_corr, _ = get_evaluation_metrics(annots_recon, adjs_recon, dataset_name=dataset_name)
         
         return valid/n_samples, unique, novel, valid_w_corr/n_samples
     
