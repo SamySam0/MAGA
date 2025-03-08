@@ -31,9 +31,9 @@ def load_smiles(dataset='QM9', subset=None):
     else:
         raise ValueError('wrong dataset name in load_smiles')
     
-    df = pd.read_csv(f'data/{dataset.lower()}.csv')
+    df = pd.read_csv(f'data/{dataset.lower()}/{dataset.lower()}.csv')
 
-    with open(f'data/valid_idx_{dataset.lower()}.json') as f:
+    with open(f'data/{dataset.lower()}/valid_idx_{dataset.lower()}.json') as f:
         test_idx = json.load(f)
     
     if dataset == 'QM9':
