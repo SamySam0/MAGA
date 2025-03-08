@@ -1,92 +1,45 @@
-import torch
-from torch_geometric.datasets import QM9, ZINC
+import os, json, torch
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
-import math
+from data.loader import KekulizedMolDataset
 
 
-def load_qm9_data(root, batch_size, transforms, num_workers=0,
-                  train_val_test_split=[0.8, 0.1, 0.1],
-                  dataset_size=None):
-   # Load the full dataset
-   assert isinstance(transforms, list), 'transforms should be a list'
-   dataset = QM9(root=root, transform=Compose(transforms))
-  
-   # Shuffle the dataset
-   dataset = dataset.shuffle()
-  
-   # Optionally restrict to a given number of observations.
-   if dataset_size is not None:
-       # In case dataset_size exceeds the available number of samples.
-       dataset = dataset[:min(dataset_size, len(dataset))]
+def get_dataset(root_dir, dataset_name, debug, batch_size, transforms):
+    # Create the dataset_name with the Spectral Feat transforms
+    data = KekulizedMolDataset(root_dir, pre_transform=Compose(transforms), dataset=dataset_name)
 
-   n_total = len(dataset)
-   n_train = math.floor(n_total * train_val_test_split[0])
-   n_val   = math.floor(n_total * train_val_test_split[1])
-   n_test  = n_total - n_train - n_val
+    # Load the test indices from the corresponding file
+    train_idx, test_idx = get_indices(root_dir, dataset_name, len(data), debug)
 
-   train_dataset = dataset[:n_train]
-   val_dataset   = dataset[n_train:n_train+n_val]
-   test_dataset  = dataset[n_train+n_val:]
+    # Create DataLoaders for training and test sets
+    train_loader = DataLoader(
+        data[train_idx],
+        batch_size=batch_size,
+        shuffle=True, drop_last=True,
+    )
+    test_loader = DataLoader(
+        data[test_idx], 
+        batch_size=1024, 
+        shuffle=True, drop_last=True, 
+    )
 
-   train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                             shuffle=True, num_workers=num_workers)
-   val_loader   = DataLoader(val_dataset, batch_size=batch_size,
-                             shuffle=False, num_workers=num_workers)
-   test_loader  = DataLoader(test_dataset, batch_size=batch_size,
-                             shuffle=False, num_workers=num_workers)
-
-   return train_loader, val_loader, test_loader
+    return train_loader, test_loader
 
 
-def load_zinc_data(root, batch_size, transforms, num_workers=0,
-                  train_val_test_split=[0.8, 0.1, 0.1],
-                  dataset_size=None):
-    # Load the full dataset
-   assert isinstance(transforms, list), 'transforms should be a list'
-   dataset = ZINC(root=root, transform=Compose(transforms))
-  
-   # Shuffle the dataset
-   dataset = dataset.shuffle()
-  
-   # Optionally restrict to a given number of observations.
-   if dataset_size is not None:
-       # In case dataset_size exceeds the available number of samples.
-       dataset = dataset[:min(dataset_size, len(dataset))]
+def get_indices(root_dir, dataset_name, n_instances, debug):
+    with open(os.path.join(root_dir, f'valid_idx_{dataset_name.lower()}.json')) as f:
+        test_idx = json.load(f)
+        if dataset_name == 'qm9':
+            test_idx = test_idx['valid_idxs']
+        test_idx = [int(i) for i in test_idx]
 
-   n_total = len(dataset)
-   n_train = math.floor(n_total * train_val_test_split[0])
-   n_val   = math.floor(n_total * train_val_test_split[1])
-   n_test  = n_total - n_train - n_val
+    # Create a boolean mask for the training indices
+    train_idx = torch.ones(n_instances).bool()
+    train_idx[test_idx] = False
+    train_idx = train_idx[train_idx]
 
-   train_dataset = dataset[:n_train]
-   val_dataset   = dataset[n_train:n_train+n_val]
-   test_dataset  = dataset[n_train+n_val:]
+    if debug:
+        train_idx = train_idx[:50*32]
+        test_idx = test_idx[:1024]
 
-   train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                             shuffle=True, num_workers=num_workers)
-   val_loader   = DataLoader(val_dataset, batch_size=batch_size,
-                             shuffle=False, num_workers=num_workers)
-   test_loader  = DataLoader(test_dataset, batch_size=batch_size,
-                             shuffle=False, num_workers=num_workers)
-
-   return train_loader, val_loader, test_loader
-
-
-# from easydict import EasyDict as edict
-# import sys
-# import os
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# from utils.transforms import AddSpectralFeat
-# import yaml
-# with open('config.yaml', 'r') as f:
-#     config = edict(yaml.safe_load(f))
-
-# train_loader, val_loader, test_loader = load_zinc_data(
-#     transforms=[AddSpectralFeat()],
-#     root=config.data.path,
-#     batch_size=config.var.train.batch_size,
-#     num_workers=2,
-#     train_val_test_split=config.data.train_val_test_split,
-#     dataset_size=config.data.dataset_size,
-# )
+    return train_idx, test_idx
