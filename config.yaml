@@ -56,7 +56,7 @@ train:
 
 ### DATASET ###
 dataset:
-  name: QM9
+  name: qm9                     # Must be lower case 'qm9' or 'zinc'
   debug: false
   n_exp_samples: 1024
 

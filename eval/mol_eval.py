@@ -23,10 +23,10 @@ AN_TO_SYMBOL = {6: 'C', 7: 'N', 8: 'O', 9: 'F', 15: 'P', 16: 'S', 17: 'Cl', 35: 
 
 ##### rdkit utils functions #####
 
-def load_smiles(dataset='QM9', subset=None):
-    if dataset == 'QM9':
+def load_smiles(dataset='qm9', subset=None):
+    if dataset == 'qm9':
         col = 'SMILES1'
-    elif dataset in ['ZINC250K', 'zinc250k']:
+    elif dataset == 'zinc':
         col = 'smiles'
     else:
         raise ValueError('wrong dataset name in load_smiles')
@@ -36,7 +36,7 @@ def load_smiles(dataset='QM9', subset=None):
     with open(f'data/{dataset.lower()}/valid_idx_{dataset.lower()}.json') as f:
         test_idx = json.load(f)
     
-    if dataset == 'QM9':
+    if dataset == 'qm9':
         test_idx = test_idx['valid_idxs']
         test_idx = [int(i) for i in test_idx]
 
@@ -213,7 +213,7 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     Args:
         node_one_hot: One-hot encoded node features tensor [B, N, num_node_type]
         adj_one_hot: One-hot encoded adjacency tensor [B, num_adj_type, N, N]
-        dataset_name: Name of the dataset ('QM9' or 'ZINC250K')
+        dataset_name: Name of the dataset ('qm9' or 'zinc')
     """
     node_one_hot = node_one_hot.detach().cpu().numpy()
     adj_one_hot  = adj_one_hot.detach().cpu().numpy()
@@ -223,9 +223,9 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
     test_smiles = canonicalize_smiles(test_smiles)
     # test_graph_list = mols_to_nx(smiles_to_mols(test_smiles))
 
-    if dataset_name == 'QM9':
+    if dataset_name == 'qm9':
         atomic_num_list = [6, 7, 8, 9, 0]
-    elif dataset_name == 'ZINC250K':
+    elif dataset_name == 'zinc':
         atomic_num_list = [6, 7, 8, 9, 15, 16, 17, 35, 53, 0]
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")

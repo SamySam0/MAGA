@@ -7,7 +7,7 @@ from eval.mol_eval import construct_mol, correct_mol, valid_mol_can_with_seg
 def save_molecules(annots_recon, adjs_recon, dataset_name, viz_dir, epoch):
     if dataset_name.lower() == 'qm9':
         atomic_num_list = [6, 7, 8, 9, 0]                       # C, N, O, F, None
-    elif dataset_name.lower() == 'zinc250k':
+    elif dataset_name.lower() == 'zinc':
         atomic_num_list = [6, 7, 8, 9, 15, 16, 17, 35, 53, 0]   # C, N, O, F, P, S, Cl, Br, I, None
     
     # Convert to numpy

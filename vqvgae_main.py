@@ -15,7 +15,7 @@ def main(config_path='config.yaml'):
     config = edict(yaml.load(open(config_path, 'r'), Loader=yaml.FullLoader))
 
     # Fetch appropriate data configurations
-    if config.dataset.name == 'QM9':
+    if config.dataset.name == 'qm9':
         config.dataset.update(config.qm9)
     else:
         config.dataset.update(config.zinc)
@@ -41,7 +41,7 @@ def main(config_path='config.yaml'):
     # Load QM9 dataset
     train_loader, val_loader = get_dataset(
         root_dir=config.dataset.path, 
-        dataset_name=config.dataset.name.lower(), 
+        dataset_name=config.dataset.name, 
         debug=config.dataset.debug, 
         batch_size=config.train.vqvgae.batch_size, 
         transforms=[AddSpectralFeat()],

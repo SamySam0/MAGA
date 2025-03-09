@@ -14,7 +14,7 @@ class KekulizedMolDataset(InMemoryDataset):
     @property
     def raw_file_names(self):
         if self.dataset == 'zinc':
-            return ['zinc250k_kekulized.npz']
+            return ['zinc_kekulized.npz']
         elif self.dataset == 'qm9':
             return ['qm9_kekulized.npz']
         else:
@@ -31,14 +31,14 @@ class KekulizedMolDataset(InMemoryDataset):
         # Download to `self.raw_dir`.
         if self.dataset == 'zinc':
             download_url('https://drive.switch.ch/index.php/s/D8ilMxpcXNHtVUb/download', self.raw_dir,
-                         filename='zinc250k_kekulized.npz')
+                         filename='zinc_kekulized.npz')
         elif self.dataset == 'qm9':
             download_url('https://drive.switch.ch/index.php/s/SESlx1ylQAopXsi/download', self.raw_dir,
                          filename='qm9_kekulized.npz')
 
     def process(self):
         if self.dataset == 'zinc':
-            filepath = os.path.join(self.raw_dir, 'zinc250k_kekulized.npz')
+            filepath = os.path.join(self.raw_dir, 'zinc_kekulized.npz')
             max_num_nodes = 38
         elif self.dataset == 'qm9':
             filepath = os.path.join(self.raw_dir, 'qm9_kekulized.npz')
