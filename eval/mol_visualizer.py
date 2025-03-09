@@ -5,9 +5,10 @@ from eval.mol_eval import construct_mol, correct_mol, valid_mol_can_with_seg
 
 
 def save_molecules(annots_recon, adjs_recon, dataset_name, viz_dir, epoch):
-    if dataset_name.lower() == 'qm9':
+    viz_dir = viz_dir + f'/{dataset_name}'
+    if dataset_name == 'qm9':
         atomic_num_list = [6, 7, 8, 9, 0]                       # C, N, O, F, None
-    elif dataset_name.lower() == 'zinc':
+    elif dataset_name == 'zinc':
         atomic_num_list = [6, 7, 8, 9, 15, 16, 17, 35, 53, 0]   # C, N, O, F, P, S, Cl, Br, I, None
     
     # Convert to numpy
@@ -41,7 +42,7 @@ def save_molecules(annots_recon, adjs_recon, dataset_name, viz_dir, epoch):
     if molecules:
         # No need to limit as we already have at most 25 unique molecules
         img = Draw.MolsToGridImage(molecules, molsPerRow=5, subImgSize=(500, 500))
-        img.save(f"{viz_dir}/molecule_grid-epoch_{epoch}.png")
+        img.save(f"{viz_dir}/molecule_gridepoch_{epoch}.png")
         
         # Save SMILES strings to a file
         with open(f"{viz_dir}/smiles-epoch_{epoch}.txt", "w") as f:

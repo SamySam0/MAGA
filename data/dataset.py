@@ -27,7 +27,7 @@ def get_dataset(root_dir, dataset_name, debug, batch_size, transforms):
 
 
 def get_indices(root_dir, dataset_name, n_instances, debug):
-    with open(os.path.join(root_dir, f'valid_idx_{dataset_name.lower()}.json')) as f:
+    with open(os.path.join(root_dir, f'valid_idx_{dataset_name}.json')) as f:
         test_idx = json.load(f)
         if dataset_name == 'qm9':
             test_idx = test_idx['valid_idxs']
