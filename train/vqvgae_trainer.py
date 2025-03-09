@@ -6,6 +6,7 @@ from torch_geometric.loader import DataLoader
 from model.vgae_helpers import prepare_for_exp
 from utils.losses import get_losses
 from eval.mol_eval import get_evaluation_metrics
+from eval.mol_visualizer import save_molecules
 
 
 class VQVGAE_Trainer(object):
@@ -69,7 +70,7 @@ class VQVGAE_Trainer(object):
         self.scheduler.step(val_recon_loss)
         return val_recon_loss
     
-    def exp(self, n_samples, dataset_name):
+    def exp(self, n_samples, dataset_name, curr_epoch):
         self.model.eval()
         exp_loader = DataLoader(self.valid_loader.dataset, batch_size=n_samples)
         batch = next(iter(exp_loader))
@@ -78,6 +79,7 @@ class VQVGAE_Trainer(object):
             annots_recon, adjs_recon, node_masks = self.step(batch.to(self.device), train=False, experimenting=True)
             annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks)
             valid, unique, novel = get_evaluation_metrics(annots_recon, adjs_recon, dataset_name=dataset_name)
+            save_molecules(annots_recon, adjs_recon, dataset_name=dataset_name, viz_dir='generated_molecules', epoch=curr_epoch)
         
         return valid, unique, novel
     

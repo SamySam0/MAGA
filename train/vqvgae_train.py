@@ -36,7 +36,7 @@ def train(
         train_recon_loss = round(trainer.train_ep(), 5)
         training_times.append(time.time() - start_time)
         valid_recon_loss = round(trainer.valid_ep(), 5)
-        valid, unique, novel = trainer.exp(n_samples=n_exp_samples, dataset_name=dataset_name)
+        valid, unique, novel = trainer.exp(n_samples=n_exp_samples, dataset_name=dataset_name, curr_epoch=epoch)
         valid, unique, novel = round(valid, 5), round(unique, 5), round(novel, 5)
         if epoch % log_loss_per_n_epoch == 0 or epoch == n_epochs:
             print(f"Epoch: {epoch} | Train Recon Loss: {train_recon_loss}, Valid Recon Loss: {valid_recon_loss}, LR: {lrs[-1]}", end=' | ')
