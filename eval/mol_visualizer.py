@@ -42,7 +42,7 @@ def save_molecules(annots_recon, adjs_recon, dataset_name, viz_dir, epoch):
     if molecules:
         # No need to limit as we already have at most 25 unique molecules
         img = Draw.MolsToGridImage(molecules, molsPerRow=5, subImgSize=(500, 500))
-        img.save(f"{viz_dir}/molecule_gridepoch_{epoch}.png")
+        img.save(f"{viz_dir}/molecule_grid-epoch_{epoch}.png")
         
         # Save SMILES strings to a file
         with open(f"{viz_dir}/smiles-epoch_{epoch}.txt", "w") as f:
