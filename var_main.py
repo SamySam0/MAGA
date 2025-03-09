@@ -1,6 +1,6 @@
 import torch, yaml, os, argparse
 from datetime import datetime
-from data.dataset import load_qm9_data
+from data.dataset import get_dataset
 from model import build_vqvgae_and_var
 import torch.optim as optim
 from easydict import EasyDict as edict
@@ -13,6 +13,12 @@ def main(vqvgae_pretrain_path, config_path='config.yaml'):
     torch.manual_seed(42)
     config = edict(yaml.load(open(config_path, 'r'), Loader=yaml.FullLoader))
 
+    # Fetch appropriate data configurations
+    if config.dataset.name == 'QM9':
+        config.dataset.update(config.qm9)
+    else:
+        config.dataset.update(config.zinc)
+
     # Create log dir if does not exist
     os.makedirs(config.log.checkpoint_dir, exist_ok=True)
 
@@ -22,6 +28,8 @@ def main(vqvgae_pretrain_path, config_path='config.yaml'):
     with open(f'{config.log.checkpoint_dir}/{checkpoint_name}_logs.txt', 'w') as f:
         f.write('===== Config =====\n')
         for section, params in config.items():
+            if section in ['qm9', 'zinc']:
+                continue
             f.write(f'\n[{section}]\n')
             if isinstance(params, dict):
                 for key, value in params.items():
@@ -30,27 +38,27 @@ def main(vqvgae_pretrain_path, config_path='config.yaml'):
                 f.write(f'{params}\n')
     
     # Load QM9 dataset
-    train_loader, val_loader, test_loader = load_qm9_data(
+    train_loader, val_loader = get_dataset(
+        root_dir=config.dataset.path, 
+        dataset_name=config.dataset.name.lower(), 
+        debug=config.dataset.debug, 
+        batch_size=config.train.vqvgae.batch_size, 
         transforms=[AddSpectralFeat()],
-        root=config.data.path,
-        batch_size=config.var.train.batch_size,
-        num_workers=2,
-        train_val_test_split=config.data.train_val_test_split,
-        dataset_size=config.data.dataset_size,
     )
 
     # Initialise model, optimizer and scheduler
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     vqvgae, var = build_vqvgae_and_var(config, device, vqvgae_pretrain_path=vqvgae_pretrain_path, var_pretrain_path=None)
-    var_optimizer = optim.Adam(var.parameters(), lr=config.var.train.lr, betas=(config.var.train.beta1, config.var.train.beta2))
-    var_scheduler = optim.lr_scheduler.ReduceLROnPlateau(var_optimizer, factor=config.var.train.lr_decay, patience=config.var.train.sch_patience, min_lr=2*1e-5)
+    var_optimizer = optim.Adam(var.parameters(), lr=config.train.var.lr, betas=(config.train.var.beta1, config.train.var.beta2))
+    var_scheduler = optim.lr_scheduler.ReduceLROnPlateau(var_optimizer, factor=config.train.var.lr_decay, patience=config.train.var.sch_patience, min_lr=2*1e-5)
 
     # Train model
     train(
         vqvgae=vqvgae, var=var, var_optimizer=var_optimizer, var_scheduler=var_scheduler, 
         train_loader=train_loader, valid_loader=val_loader, device=device,
-        scales=config.vqvgae.quantizer.scales, grad_clip=config.var.train.grad_clip, label_smooth=config.var.train.label_smooth, n_exp_samples=config.data.n_exp_samples, 
-        n_epochs=config.var.train.epochs, exp_batch_size=config.data.exp_batch_size, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
+        scales=config.vqvgae.quantizer.scales, grad_clip=config.train.var.grad_clip, label_smooth=config.train.var.label_smooth, 
+        n_exp_samples=config.dataset.n_exp_samples, dataset_name=config.dataset.name,
+        n_epochs=config.train.var.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
         checkpoint_path=config.log.checkpoint_dir, checkpoint_name=checkpoint_name,
     )
 
@@ -60,8 +68,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--vqvgae_pretrain_path', '-p', type=str, required=True,
                       help='Path to pretrained VQVGAE model')
-    parser.add_argument('--config_path', '-c', type=str, required=False, default='config.yaml',
-                      help='Path to config.yaml file')
     
     args = parser.parse_args()
-    main(vqvgae_pretrain_path=args.vqvgae_pretrain_path, config_path=args.config_path)
+    main(vqvgae_pretrain_path=args.vqvgae_pretrain_path)

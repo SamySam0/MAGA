@@ -6,7 +6,8 @@ from collections import Counter
 from typing import List
 
 from model.vgae_helpers import prepare_for_exp
-from eval.evaluation import qm9_eval
+from eval.mol_eval import get_evaluation_metrics
+from eval.mol_visualizer import save_molecules
 
 
 class VAR_Trainer(object):
@@ -94,30 +95,23 @@ class VAR_Trainer(object):
         self.var_scheduler.step(np.mean(ep_eval_tail_loss))
         return np.mean(ep_eval_mean_loss), np.mean(ep_eval_tail_loss), np.mean(ep_eval_mean_acc), np.mean(ep_eval_tail_acc)
 
-    def qm9_exp(self, n_samples, batch_size):
+    def exp(self, n_samples, dataset_name, curr_epoch):
         self.var.eval()
-        assert n_samples % batch_size == 0, f'n_samples ({n_samples}) must be divisible by the batch_size ({batch_size})!'
-        all_annots, all_adjs = [], []
-        
-        start_time = time.time()
         # TODO: fix this for when there is more than one batch total
         with torch.no_grad():
-            for batch in tqdm(range(n_samples//batch_size), desc='Experiment: Molecule Generation', leave=False):
-                label = self.pd_graph_size.sample(batch_size).to(self.device)
-                
-                nodes_recon, edges_recon, node_masks = self.var.autoregressive_infer_cfg(
-                    B=batch_size, label_B=label, cfg=4, top_k=900, top_p=0.95
-                )
-                annots_recon, adjs_recon = prepare_for_exp(nodes_recon, edges_recon, node_masks, node_masks)
-                all_annots.append(annots_recon)
-                all_adjs.append(adjs_recon)
+            label = self.pd_graph_size.sample(n_samples).to(self.device)
+            
+            start_time = time.time()
+            annots_recon, adjs_recon, node_masks = self.var.autoregressive_infer_cfg(
+                B=n_samples, label_B=label, cfg=4, top_k=900, top_p=0.95
+            )
+            gen_time = time.time() - start_time
+
+            annots_recon, adjs_recon = prepare_for_exp(annots_recon, adjs_recon, node_masks)
+            valid, unique, novel = get_evaluation_metrics(annots_recon, adjs_recon, dataset_name=dataset_name)
+            save_molecules(annots_recon, adjs_recon, dataset_name=dataset_name, viz_dir='generated_molecules', epoch=curr_epoch)
         
-        gen_time = time.time() - start_time
-        all_annots = torch.cat(all_annots, dim=0)
-        all_adjs = torch.cat(all_adjs, dim=0)
-        
-        valid, unique, novel, valid_w_corr = qm9_eval(all_annots, all_adjs)
-        return valid/n_samples, unique, novel, valid_w_corr/n_samples, gen_time
+        return valid, unique, novel, gen_time
 
 
 class CategoricalGraphSize:

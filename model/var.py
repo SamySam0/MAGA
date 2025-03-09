@@ -59,7 +59,7 @@ class VAR(nn.Module):
         self.blocks = nn.ModuleList([
             AdaLNSelfAttn(
                 cond_dim=self.D, block_idx=block_idx, embed_dim=self.C, norm_layer=norm_layer, 
-                num_heads=self.num_heads, mlp_ratio=config.var.train.mlp_ratio, drop=drop_rate, attn_drop=attn_drop_rate, 
+                num_heads=self.num_heads, mlp_ratio=config.train.var.mlp_ratio, drop=drop_rate, attn_drop=attn_drop_rate, 
                 drop_path=dpr[block_idx], last_drop_p=0 if block_idx==0 else dpr[block_idx-1], attn_l2_norm=attn_l2_norm,
             )
             for block_idx in range(self.depth)
@@ -139,7 +139,7 @@ class VAR(nn.Module):
         for block in self.blocks:
             block.attn.kv_caching(False)
         
-        return self.vae_proxy[0].fhat_to_graph(f_hat, original_sizes=label_B)
+        return self.vae_proxy[0].fhat_to_graph(f_hat, init_graph_sizes=label_B)
 
     def init_weights(self, init_adaln=0.5, init_adaln_gamma=1e-5, init_head=0.02, init_std=0.02, conv_std_or_gain=0.02):
         if init_std < 0: 
