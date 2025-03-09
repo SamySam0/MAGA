@@ -36,7 +36,7 @@ class VQVAE(nn.Module):
             # Latent Attention Projection
             latent_proj_n_layers=config.vqvgae.latent_attn_proj.n_layers, 
             latent_proj_n_heads=config.vqvgae.latent_attn_proj.n_heads, 
-            latent_proj_max_gsize=config.vqvgae.latent_attn_proj.max_gsize, 
+            latent_proj_max_gsize=config.dataset.max_gsize, 
             # GNN Decoding
             n_layers=config.vqvgae.decoder.n_layers, 
             hidden_dim=config.vqvgae.decoder.hidden_dim, 

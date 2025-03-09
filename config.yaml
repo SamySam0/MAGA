@@ -14,10 +14,10 @@ vqvgae:
       - 1
       - 2
       - 3
+      - 6
   latent_attn_proj:
     n_layers: 3
     n_heads: 4
-    max_gsize: 35
   decoder:
     n_layers: 3
     hidden_dim: 128
@@ -26,15 +26,15 @@ vqvgae:
 var:
   depth: 4
   num_heads: 4
-  emb_dim: 128
-  num_classes: 30
+  emb_dim: 256
+  num_classes: 40
 
 
 ### TRAINING HYPERPARAMETERS ###
 train:
   vqvgae:
-    epochs: 35
-    batch_size: 32
+    epochs: 30
+    batch_size: 64
     lr: 0.005
     beta1: 0.9
     beta2: 0.99
@@ -56,7 +56,7 @@ train:
 
 ### DATASET ###
 dataset:
-  name: qm9                     # Must be lower case 'qm9' or 'zinc'
+  name: zinc                     # Must be lower case 'qm9' or 'zinc'
   debug: false
   n_exp_samples: 1024
 
@@ -65,12 +65,14 @@ qm9:
   node_feature_dim: 4           # Original node features
   additional_node_features: 5   # +5 for Spectral Features
   edge_feature_dim: 3
+  max_gsize: 12
 
 zinc:
   path: 'data/zinc'
-  node_feature_dim: 11          # Original node features
+  node_feature_dim: 9           # Original node features
   additional_node_features: 5   # +5 for Spectral Features
-  edge_feature_dim: 4
+  edge_feature_dim: 3
+  max_gsize: 40
 
 
 ### LOG SETTINGS ###
