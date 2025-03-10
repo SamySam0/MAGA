@@ -5,6 +5,7 @@ from sklearn.manifold import TSNE
 from torch.utils.data import DataLoader
 from model import build_vqvgae
 from data.dataset import get_dataset
+import numpy as np
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -41,7 +42,6 @@ def get_latent_embeddings(vqvgae, dataloader, device="cuda"):
     return torch.cat(all_embeddings, dim=0).numpy()
 
 
-
 def visualize_latent_space(embeddings, method="tsne", save_path=None):
     num_graphs, scale_size, feature_dim = embeddings.shape
     embeddings_reshaped = embeddings.reshape(num_graphs * scale_size, feature_dim)
@@ -53,9 +53,12 @@ def visualize_latent_space(embeddings, method="tsne", save_path=None):
         reducer = TSNE(n_components=2, perplexity=30, n_iter=300)
         title = "t-SNE of Latent Embeddings"
 
+    # # Group by component
+    # labels = np.tile(np.arange(scale_size), num_graphs)
     reduced_embeds = reducer.fit_transform(embeddings_reshaped)
 
     plt.figure(figsize=(8, 6))
+    # plt.scatter(reduced_embeds[:, 0], reduced_embeds[:, 1], c=labels, cmap='viridis', alpha=0.7, s=5)
     plt.scatter(reduced_embeds[:, 0], reduced_embeds[:, 1], alpha=0.7, s=5)
     plt.title(title)
     plt.xlabel("Component 1")
