@@ -89,7 +89,7 @@ if __name__ == "__main__":
         root_dir=config.dataset.path, 
         dataset_name=config.dataset.name, 
         debug=config.dataset.debug, 
-        batch_size=32,  # Adjust batch size if needed
+        batch_size=64,
         transforms=[]
     )
 
