@@ -236,7 +236,7 @@ def get_evaluation_metrics(node_one_hot, adj_one_hot, dataset_name):
         c_mol, no_correct = correct_mol(mol)
         if no_correct:
            num_no_correct += 1
-        vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=False)
+        vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
         if vc_mol is not None:
             gen_mols.append(vc_mol)
 

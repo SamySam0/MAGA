@@ -27,7 +27,7 @@ def save_molecules(annots_recon, adjs_recon, dataset_name, viz_dir, epoch):
         mol = construct_mol(x, a, atomic_num_list)
         if mol is not None:
             c_mol, _ = correct_mol(mol)
-            vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=False)
+            vc_mol = valid_mol_can_with_seg(c_mol, largest_connected_comp=True)
             if vc_mol is not None:
                 # Check if this molecule is unique
                 smiles = Chem.MolToSmiles(vc_mol)
