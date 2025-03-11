@@ -53,7 +53,7 @@ class KekulizedMolDataset(InMemoryDataset):
             x = atom_number_to_one_hot(x, self.dataset)
             edge_index, edge_attr = from_dense_numpy_to_sparse(adj)
             data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, max_num_nodes=max_num_nodes)
-            if data.x.shape[0] < 4:
+            if data.x.shape[0] < 5:
                 continue
             if self.pre_transform is not None:
                 data = self.pre_transform(data)
