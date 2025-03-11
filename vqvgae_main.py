@@ -51,7 +51,7 @@ def main(config_path='config.yaml'):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = build_vqvgae(config, device, vqvgae_pretrain_path=None)
     optimizer = optim.Adam(model.parameters(), lr=config.train.vqvgae.lr, betas=(config.train.vqvgae.beta1, config.train.vqvgae.beta2))
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=config.train.vqvgae.lr_decay, patience=config.train.vqvgae.sch_patience, min_lr=2*1e-5)
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, config.train.vqvgae.lr_decay)
     loss_fn = nn.CrossEntropyLoss(reduction='none')
 
     # Train model
@@ -60,7 +60,8 @@ def main(config_path='config.yaml'):
         train_loader=train_loader, valid_loader=val_loader,
         n_exp_samples=config.dataset.n_exp_samples, dataset_name=config.dataset.name,
         device=device, train_gamma=config.train.vqvgae.gamma, 
-        n_epochs=config.train.vqvgae.epochs, log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
+        n_epochs=config.train.vqvgae.epochs, decay_iter=config.train.vqvgae.decay_iter, 
+        log_loss_per_n_epoch=config.log.log_loss_per_n_epoch,
         checkpoint_path=config.log.checkpoint_dir, checkpoint_name=checkpoint_name,
     )
 

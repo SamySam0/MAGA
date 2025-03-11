@@ -4,7 +4,7 @@ from train.vqvgae_trainer import VQVGAE_Trainer
 
 def train(
     model, optimizer, scheduler, loss_fn, train_loader, valid_loader, 
-    device, train_gamma, n_epochs, log_loss_per_n_epoch, n_exp_samples, dataset_name,
+    device, train_gamma, decay_iter, n_epochs, log_loss_per_n_epoch, n_exp_samples, dataset_name,
     checkpoint_path, checkpoint_name,
 ):
     # Setup trainer
@@ -12,7 +12,7 @@ def train(
         model=model, optimizer=optimizer, scheduler=scheduler, 
         loss_fn=loss_fn,
         dataloaders=(train_loader, valid_loader), 
-        device=device, gamma=train_gamma,
+        device=device, gamma=train_gamma, decay_iter=decay_iter,
     )
 
     # Training phase 1 and 2: codebook initialisation

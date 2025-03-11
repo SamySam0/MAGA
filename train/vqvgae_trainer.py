@@ -10,18 +10,23 @@ from eval.mol_visualizer import save_molecules
 
 
 class VQVGAE_Trainer(object):
-    def __init__(self, model, optimizer, scheduler, loss_fn, dataloaders, device, gamma):
+    def __init__(self, model, optimizer, scheduler, loss_fn, dataloaders, device, gamma, decay_iter):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.loss_fn = loss_fn
+        
         self.device = device
         self.train_loader, self.valid_loader = dataloaders
         self.gamma = gamma # config.train.gamma
 
+        self.curr_train_iter = 0
+        self.decay_iter = decay_iter
+
     def step(self, batch, train: bool, init_phase: bool = False, experimenting: bool = False):
         if train:
             self.optimizer.zero_grad()
+            self.curr_train_iter += 1
 
         if init_phase:
             nodes_recon, edges_recon, node_masks = self.model.forward_init(batch)
@@ -56,6 +61,9 @@ class VQVGAE_Trainer(object):
         for batch in tqdm(self.train_loader, total=len(self.train_loader), desc='Training', leave=False):
             recon_loss = self.step(batch.to(self.device), train=True)
             batch_recon_loss.append(recon_loss)
+            if self.curr_train_iter % self.decay_iter == 0 and self.scheduler.get_last_lr()[0] > 2 * 1e-5:
+                self.scheduler.step()
+                print(f'New learning rate: {self.scheduler.get_last_lr()}')
         return np.mean(batch_recon_loss)
 
     def valid_ep(self):
@@ -65,9 +73,7 @@ class VQVGAE_Trainer(object):
             with torch.no_grad():
                 recon_loss = self.step(batch.to(self.device), train=False)
             batch_recon_loss.append(recon_loss)
-        
         val_recon_loss = np.mean(batch_recon_loss)
-        self.scheduler.step(val_recon_loss)
         return val_recon_loss
     
     def exp(self, n_samples, dataset_name, curr_epoch):
